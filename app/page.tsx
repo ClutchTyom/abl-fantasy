@@ -1,9 +1,7 @@
-import Header from "../components/layout/Header";
-
+import Link from "next/link";
 export default function Home() {
   return (
     <>
-      <Header />
 
       <main className="bg-gray-50 min-h-screen">
         {/* Hero */}
@@ -18,9 +16,12 @@ export default function Home() {
             Стань лучшим Fantasy-менеджером Amateur Basketball League.
           </p>
 
-          <button className="mt-10 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-lg font-semibold transition">
-            Начать играть
-          </button>
+          <Link
+  href="/team"
+  className="mt-10 inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-lg font-semibold transition"
+>
+  Начать играть
+</Link>
         </section>
 
         {/* Почему играют */}

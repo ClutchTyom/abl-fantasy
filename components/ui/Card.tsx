@@ -1,12 +1,10 @@
-type CardProps = {
-  children: React.ReactNode;
-};
-
 export default function Card({
   children,
-}: CardProps) {
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <div className="border rounded-xl p-5 shadow-md bg-white">
+    <div className="border rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition">
       {children}
     </div>
   );
