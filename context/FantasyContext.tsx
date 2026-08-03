@@ -89,6 +89,14 @@ export function FantasyProvider({
   // Состав команды всегда тянется из аккаунта пользователя, а не из
   // localStorage браузера — иначе на другом устройстве или в другом
   // аккаунте на том же компьютере виден чужой/устаревший черновик.
+  //
+  // Завязываемся на user.id (а не на весь объект user) специально:
+  // supabase пересоздаёт объект user на каждое событие onAuthStateChange
+  // (обновление токена, возврат фокуса на вкладку и т.д.), и если бы
+  // эффект зависел от всего объекта, каждое такое событие заново тянуло
+  // бы состав с сервера, затирая ещё не сохранённых добавленных игроков.
+  const userId = user?.id;
+
   useEffect(() => {
     let cancelled = false;
 
@@ -97,7 +105,7 @@ export function FantasyProvider({
       setSaveSuccess(false);
       setSaveError(null);
 
-      if (!user) {
+      if (!userId) {
         setSquad(emptySquad);
         setCaptainId(null);
         setRound(null);
@@ -130,7 +138,7 @@ export function FantasyProvider({
       const { data: existingSquad } = await supabase
         .from("fantasy_squads")
         .select("id, captain_player_id, is_locked")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("round_id", activeRound.id)
         .maybeSingle();
 
@@ -169,7 +177,7 @@ export function FantasyProvider({
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [userId]);
 
   function addPlayer(player: Player) {
     setSquad((current) => {
