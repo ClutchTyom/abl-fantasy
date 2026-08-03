@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { Player } from "@/types/player";
 
 export const STARTING_SLOTS = ["PG", "SG", "SF", "PF", "C"] as const;
-export const BENCH_SLOTS = ["BENCH1", "BENCH2", "BENCH3", "BENCH4"] as const;
+export const BENCH_SLOTS = ["BENCH1", "BENCH2", "BENCH3", "BENCH4", "BENCH5"] as const;
 export const ALL_SLOTS = [...STARTING_SLOTS, ...BENCH_SLOTS] as const;
 
 export type Slot = (typeof ALL_SLOTS)[number];
@@ -20,6 +20,7 @@ const emptySquad: Squad = {
   BENCH2: null,
   BENCH3: null,
   BENCH4: null,
+  BENCH5: null,
 };
 
 type FantasyContextType = {
@@ -29,6 +30,8 @@ type FantasyContextType = {
   budget: number;
   spent: number;
   remaining: number;
+  captainId: string | null;
+  setCaptain: (playerId: string | null) => void;
 };
 
 const FantasyContext = createContext<FantasyContextType | undefined>(
@@ -40,7 +43,8 @@ export function FantasyProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const [squad, setSquad] = useState<Squad>(emptySquad);
+const [squad, setSquad] = useState<Squad>(emptySquad);
+  const [captainId, setCaptainId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
 
   const budget = 100;
@@ -51,8 +55,9 @@ export function FantasyProvider({
 
   const remaining = budget - spent;
 
-  useEffect(() => {
+useEffect(() => {
     const saved = localStorage.getItem("abl-fantasy-squad");
+    const savedCaptain = localStorage.getItem("abl-fantasy-captain");
 
     if (saved) {
       try {
@@ -62,13 +67,26 @@ export function FantasyProvider({
       }
     }
 
+    if (savedCaptain) {
+      setCaptainId(savedCaptain);
+    }
+
     setIsLoaded(true);
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
     if (!isLoaded) return;
     localStorage.setItem("abl-fantasy-squad", JSON.stringify(squad));
   }, [squad, isLoaded]);
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    if (captainId) {
+      localStorage.setItem("abl-fantasy-captain", captainId);
+    } else {
+      localStorage.removeItem("abl-fantasy-captain");
+    }
+  }, [captainId, isLoaded]);
 
   function addPlayer(player: Player) {
     setSquad((current) => {
@@ -83,6 +101,15 @@ export function FantasyProvider({
 
       if (currentSpent + player.price > budget) {
         alert("Недостаточно бюджета");
+        return current;
+      }
+
+      const sameTeamCount = ALL_SLOTS.filter(
+        (slot) => current[slot]?.team_id === player.team_id
+      ).length;
+
+      if (sameTeamCount >= 2) {
+        alert("Максимум 2 игрока из одной команды");
         return current;
       }
 
@@ -103,17 +130,32 @@ export function FantasyProvider({
     });
   }
 
-  function removePlayer(playerId: string) {
+function removePlayer(playerId: string) {
     setSquad((current) => {
       const slot = ALL_SLOTS.find((s) => current[s]?.id === playerId);
       if (!slot) return current;
       return { ...current, [slot]: null };
     });
+
+    setCaptainId((current) => (current === playerId ? null : current));
   }
 
-  return (
+  function setCaptain(playerId: string | null) {
+    setCaptainId(playerId);
+  }
+
+return (
     <FantasyContext.Provider
-      value={{ squad, addPlayer, removePlayer, budget, spent, remaining }}
+      value={{
+        squad,
+        addPlayer,
+        removePlayer,
+        budget,
+        spent,
+        remaining,
+        captainId,
+        setCaptain,
+      }}
     >
       {children}
     </FantasyContext.Provider>

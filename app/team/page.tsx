@@ -1,14 +1,18 @@
 "use client";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useUser } from "@/lib/useUser";
+
+import { useEffect, useState } from "react";
 import {
   useFantasy,
   STARTING_SLOTS,
   BENCH_SLOTS,
+  ALL_SLOTS,
   Slot,
 } from "@/context/FantasyContext";
 import PlayerCard from "@/components/fantasy/PlayerCard";
+import RoundResults from "@/components/fantasy/RoundResults";
+import { useUser } from "@/lib/useUser";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
 const SLOT_LABELS: Record<Slot, string> = {
   PG: "Разыгрывающий (PG)",
@@ -20,6 +24,7 @@ const SLOT_LABELS: Record<Slot, string> = {
   BENCH2: "Запасной 2",
   BENCH3: "Запасной 3",
   BENCH4: "Запасной 4",
+  BENCH5: "Запасной 5",
 };
 
 function EmptySlot({ label }: { label: string }) {
@@ -33,16 +38,134 @@ function EmptySlot({ label }: { label: string }) {
   );
 }
 
+type Round = {
+  id: string;
+  name: string;
+  status: string;
+  lock_at: string;
+};
+
 export default function TeamPage() {
-  const { squad, budget, spent, remaining } = useFantasy();
-const { user, isLoading } = useUser();
+const { squad, budget, spent, remaining, captainId, setCaptain } = useFantasy();
+  const { user, isLoading } = useUser();
   const router = useRouter();
+
+  const [round, setRound] = useState<Round | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
       router.push("/login");
     }
   }, [isLoading, user, router]);
+
+  useEffect(() => {
+    async function loadRound() {
+      const { data } = await supabase
+        .from("rounds")
+        .select("id, name, status, lock_at")
+        .eq("status", "upcoming")
+        .order("lock_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      setRound(data);
+    }
+
+    loadRound();
+  }, []);
+
+  const filledSlots = ALL_SLOTS.filter((slot) => squad[slot]).length;
+
+  async function handleSaveTeam() {
+    if (!user || !round) return;
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
+
+    const { data: existingSquad } = await supabase
+      .from("fantasy_squads")
+      .select("id, is_locked")
+      .eq("user_id", user.id)
+      .eq("round_id", round.id)
+      .maybeSingle();
+
+    if (existingSquad?.is_locked) {
+      setSaveError("Состав на этот тур уже заблокирован");
+      setIsSaving(false);
+      return;
+    }
+
+    let squadId: string;
+
+    if (existingSquad) {
+      squadId = existingSquad.id;
+
+const { error: updateError } = await supabase
+        .from("fantasy_squads")
+        .update({
+          budget_spent: spent,
+          captain_player_id: captainId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", squadId);
+
+      if (updateError) {
+        setSaveError(updateError.message);
+        setIsSaving(false);
+        return;
+      }
+
+      await supabase
+        .from("fantasy_squad_players")
+        .delete()
+        .eq("squad_id", squadId);
+    } else {
+      const { data: newSquad, error: insertError } = await supabase
+        .from("fantasy_squads")
+        .insert({
+          user_id: user.id,
+          round_id: round.id,
+          budget_spent: spent,
+          captain_player_id: captainId,
+        })
+        .select("id")
+        .single();
+
+      if (insertError || !newSquad) {
+        setSaveError(insertError?.message ?? "Не удалось создать состав");
+        setIsSaving(false);
+        return;
+      }
+
+      squadId = newSquad.id;
+    }
+
+    const rows = ALL_SLOTS.filter((slot) => squad[slot]).map((slot) => ({
+      squad_id: squadId,
+      player_id: squad[slot]!.id,
+      slot,
+      is_captain: squad[slot]!.id === captainId,
+    }));
+
+    if (rows.length > 0) {
+      const { error: rosterError } = await supabase
+        .from("fantasy_squad_players")
+        .insert(rows);
+
+      if (rosterError) {
+        setSaveError(rosterError.message);
+        setIsSaving(false);
+        return;
+      }
+    }
+
+    setSaveSuccess(true);
+    setIsSaving(false);
+  }
 
   if (isLoading) {
     return <p className="p-8">Загрузка...</p>;
@@ -51,9 +174,12 @@ const { user, isLoading } = useUser();
   if (!user) {
     return null;
   }
+
   return (
     <main className="max-w-6xl mx-auto p-8">
       <h1 className="text-4xl font-bold mb-8">Моя команда</h1>
+
+      <RoundResults userId={user.id} />
 
       <div className="mb-8 border rounded-xl p-5 bg-white shadow-sm grid grid-cols-3 gap-4 text-center">
         <div>
@@ -73,6 +199,57 @@ const { user, isLoading } = useUser();
           >
             {remaining}
           </p>
+        </div>
+      </div>
+
+      <div className="mb-8 border rounded-xl p-5 bg-white shadow-sm">
+        <label className="block text-sm font-medium mb-2">
+          Капитан (очки ×2)
+        </label>
+        <select
+          value={captainId ?? ""}
+          onChange={(e) => setCaptain(e.target.value || null)}
+          className="border rounded-lg px-4 py-2 w-full max-w-md"
+        >
+          <option value="">Не выбран</option>
+          {ALL_SLOTS.filter((slot) => squad[slot]).map((slot) => (
+            <option key={slot} value={squad[slot]!.id}>
+              {squad[slot]!.full_name} ({squad[slot]!.position})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-8 border rounded-xl p-5 bg-white shadow-sm flex items-center justify-between flex-wrap gap-4">
+        <div>
+          {round ? (
+            <p className="font-semibold">
+              Сохранение состава на: <span className="text-blue-600">{round.name}</span>
+            </p>
+          ) : (
+            <p className="text-gray-500">
+              Нет активного тура для сохранения (создай через админ-панель или SQL)
+            </p>
+          )}
+          <p className="text-sm text-gray-500 mt-1">
+            Заполнено слотов: {filledSlots} из {ALL_SLOTS.length}
+          </p>
+        </div>
+
+        <div className="text-right">
+          <button
+            onClick={handleSaveTeam}
+            disabled={!round || isSaving || remaining < 0}
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-lg transition"
+          >
+            {isSaving ? "Сохраняем..." : "Сохранить состав"}
+          </button>
+          {saveError && (
+            <p className="text-red-600 text-sm mt-2 max-w-xs">{saveError}</p>
+          )}
+          {saveSuccess && (
+            <p className="text-green-600 text-sm mt-2">Состав сохранён!</p>
+          )}
         </div>
       </div>
 
