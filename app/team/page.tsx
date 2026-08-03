@@ -48,6 +48,7 @@ export default function TeamPage() {
     setCaptain,
     round,
     isSquadLoading,
+    isCarriedOver,
     isLocked,
     isSquadComplete,
     isSaving,
@@ -79,6 +80,13 @@ export default function TeamPage() {
       <h1 className="text-4xl font-bold mb-8">Моя команда</h1>
 
       <RoundResults userId={user.id} />
+
+      {isCarriedOver && (
+        <div className="mb-8 border border-blue-200 rounded-xl p-4 bg-blue-50 text-blue-800 text-sm">
+          Это состав из прошлого тура — сделайте трансферы (если нужно) и
+          нажмите «Сохранить состав», чтобы зафиксировать его на новый тур.
+        </div>
+      )}
 
       <div className="mb-8 border rounded-xl p-5 bg-white shadow-sm">
         <div className="grid grid-cols-3 gap-4 text-center mb-4">

@@ -38,6 +38,47 @@ type SquadPlayerRow = {
   player_id: string;
 };
 
+async function buildSquadFromRoster(squadId: string): Promise<Squad> {
+  const { data: rosterRows, error: rosterError } = await supabase
+    .from("fantasy_squad_players")
+    .select("slot, is_captain, player_id")
+    .eq("squad_id", squadId);
+
+  if (rosterError) {
+    console.error(
+      `[FantasyContext] Не удалось загрузить игроков состава: ${rosterError.message}`
+    );
+  }
+
+  const rows = (rosterRows as SquadPlayerRow[] | null) ?? [];
+  const playerIds = rows.map((row) => row.player_id);
+  const nextSquad: Squad = { ...emptySquad };
+
+  if (playerIds.length === 0) return nextSquad;
+
+  const { data: playersData, error: playersError } = await supabase
+    .from("players")
+    .select("*, teams(name, short_name, division)")
+    .in("id", playerIds);
+
+  if (playersError) {
+    console.error(
+      `[FantasyContext] Не удалось загрузить карточки игроков: ${playersError.message}`
+    );
+  }
+
+  const playersById = new Map(
+    ((playersData as Player[] | null) ?? []).map((p) => [p.id, p])
+  );
+
+  rows.forEach((row) => {
+    const player = playersById.get(row.player_id);
+    if (player) nextSquad[row.slot] = player;
+  });
+
+  return nextSquad;
+}
+
 type FantasyContextType = {
   squad: Squad;
   addPlayer: (player: Player) => void;
@@ -49,6 +90,7 @@ type FantasyContextType = {
   setCaptain: (playerId: string | null) => void;
   round: ActiveRound | null;
   isSquadLoading: boolean;
+  isCarriedOver: boolean;
   isLocked: boolean;
   isSquadComplete: boolean;
   isSaving: boolean;
@@ -75,6 +117,7 @@ export function FantasyProvider({
   const [isAdminLocked, setIsAdminLocked] = useState(false);
   const [isTimeLocked, setIsTimeLocked] = useState(false);
   const [isSquadLoading, setIsSquadLoading] = useState(true);
+  const [isCarriedOver, setIsCarriedOver] = useState(false);
 
   // Состав заблокирован, если это выставил админ ИЛИ если время начала
   // тура (round.lock_at) уже прошло. Перепроверяем по таймеру, а не при
@@ -144,6 +187,7 @@ export function FantasyProvider({
         setCaptainId(null);
         setRound(null);
         setIsAdminLocked(false);
+        setIsCarriedOver(false);
         setIsSquadLoading(false);
         return;
       }
@@ -160,6 +204,7 @@ export function FantasyProvider({
         setCaptainId(null);
         setRound(null);
         setIsAdminLocked(false);
+        setIsCarriedOver(false);
         setIsSquadLoading(false);
         return;
       }
@@ -183,61 +228,65 @@ export function FantasyProvider({
 
       if (cancelled) return;
 
-      if (!existingSquad) {
-        setSquad(emptySquad);
-        setCaptainId(null);
-        setIsAdminLocked(false);
+      if (existingSquad) {
+        const nextSquad = await buildSquadFromRoster(existingSquad.id);
+        if (cancelled) return;
+
+        setSquad(nextSquad);
+        setCaptainId(existingSquad.captain_player_id);
+        setIsAdminLocked(existingSquad.is_locked);
+        setIsCarriedOver(false);
         setIsSquadLoading(false);
         return;
       }
 
-      const { data: rosterRows, error: rosterError } = await supabase
-        .from("fantasy_squad_players")
-        .select("slot, is_captain, player_id")
-        .eq("squad_id", existingSquad.id);
+      // Нет сохранённого состава на новый тур — подтягиваем состав из
+      // последнего тура, за который он реально сохранён, чтобы не
+      // пересобирать всё с нуля: пользователь делает трансферы, а не
+      // строит команду заново каждую неделю.
+      const { data: userSquads, error: previousError } = await supabase
+        .from("fantasy_squads")
+        .select("id, captain_player_id, fantasy_weeks(starts_at)")
+        .eq("user_id", userId);
 
-      if (rosterError) {
+      if (previousError) {
         console.error(
-          `[FantasyContext] Не удалось загрузить игроков состава: ${rosterError.message} (code: ${rosterError.code}, details: ${rosterError.details}, hint: ${rosterError.hint})`
+          `[FantasyContext] Не удалось загрузить прошлые составы: ${previousError.message}`
         );
       }
 
       if (cancelled) return;
 
-      const rows = (rosterRows as SquadPlayerRow[] | null) ?? [];
-      const playerIds = rows.map((row) => row.player_id);
+      const previousSquad = (
+        (userSquads ?? []) as unknown as {
+          id: string;
+          captain_player_id: string | null;
+          fantasy_weeks: { starts_at: string } | null;
+        }[]
+      )
+        .filter(
+          (s) => s.fantasy_weeks && s.fantasy_weeks.starts_at < activeRound.starts_at
+        )
+        .sort((a, b) =>
+          a.fantasy_weeks!.starts_at < b.fantasy_weeks!.starts_at ? 1 : -1
+        )[0];
 
-      const nextSquad: Squad = { ...emptySquad };
-
-      if (playerIds.length > 0) {
-        const { data: playersData, error: playersError } = await supabase
-          .from("players")
-          .select("*, teams(name, short_name, division)")
-          .in("id", playerIds);
-
-        if (playersError) {
-          console.error(
-            `[FantasyContext] Не удалось загрузить карточки игроков: ${playersError.message} (code: ${playersError.code}, details: ${playersError.details}, hint: ${playersError.hint})`
-          );
-        }
-
-        if (cancelled) return;
-
-        const playersById = new Map(
-          ((playersData as Player[] | null) ?? []).map((p) => [p.id, p])
-        );
-
-        rows.forEach((row) => {
-          const player = playersById.get(row.player_id);
-          if (player) {
-            nextSquad[row.slot] = player;
-          }
-        });
+      if (!previousSquad) {
+        setSquad(emptySquad);
+        setCaptainId(null);
+        setIsAdminLocked(false);
+        setIsCarriedOver(false);
+        setIsSquadLoading(false);
+        return;
       }
 
-      setSquad(nextSquad);
-      setCaptainId(existingSquad.captain_player_id);
-      setIsAdminLocked(existingSquad.is_locked);
+      const carriedSquad = await buildSquadFromRoster(previousSquad.id);
+      if (cancelled) return;
+
+      setSquad(carriedSquad);
+      setCaptainId(previousSquad.captain_player_id);
+      setIsAdminLocked(false);
+      setIsCarriedOver(true);
       setIsSquadLoading(false);
     }
 
@@ -412,6 +461,7 @@ export function FantasyProvider({
     }
 
     setIsAdminLocked(false);
+    setIsCarriedOver(false);
     setSaveSuccess(true);
     setIsSaving(false);
   }
@@ -429,6 +479,7 @@ export function FantasyProvider({
         setCaptain,
         round,
         isSquadLoading,
+        isCarriedOver,
         isLocked,
         isSquadComplete,
         isSaving,
