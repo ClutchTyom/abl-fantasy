@@ -14,7 +14,7 @@ const POSITIONS = ["PG", "SG", "SF", "PF", "C"] as const;
 export default function PlayersPage() {
   const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
-  const { spent, remaining } = useFantasy();
+  const { spent, remaining, isSquadLoading } = useFantasy();
   const [players, setPlayers] = useState<Player[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +62,7 @@ export default function PlayersPage() {
     return matchesPosition && matchesTeam;
   });
 
-  if (userLoading) {
+  if (userLoading || isSquadLoading) {
     return <p className="p-8">Загрузка...</p>;
   }
 
