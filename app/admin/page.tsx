@@ -93,7 +93,9 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (profile?.is_admin) {
-      loadData();
+      queueMicrotask(() => {
+        loadData();
+      });
     }
   }, [profile]);
 

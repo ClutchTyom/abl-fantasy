@@ -59,19 +59,21 @@ useEffect(() => {
     const saved = localStorage.getItem("abl-fantasy-squad");
     const savedCaptain = localStorage.getItem("abl-fantasy-captain");
 
-    if (saved) {
-      try {
-        setSquad({ ...emptySquad, ...JSON.parse(saved) });
-      } catch {
-        localStorage.removeItem("abl-fantasy-squad");
+    queueMicrotask(() => {
+      if (saved) {
+        try {
+          setSquad({ ...emptySquad, ...JSON.parse(saved) });
+        } catch {
+          localStorage.removeItem("abl-fantasy-squad");
+        }
       }
-    }
 
-    if (savedCaptain) {
-      setCaptainId(savedCaptain);
-    }
+      if (savedCaptain) {
+        setCaptainId(savedCaptain);
+      }
 
-    setIsLoaded(true);
+      setIsLoaded(true);
+    });
   }, []);
 
 useEffect(() => {

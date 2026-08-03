@@ -19,8 +19,10 @@ export function useProfile() {
     if (userLoading) return;
 
     if (!user) {
-      setProfile(null);
-      setIsLoading(false);
+      queueMicrotask(() => {
+        setProfile(null);
+        setIsLoading(false);
+      });
       return;
     }
 
