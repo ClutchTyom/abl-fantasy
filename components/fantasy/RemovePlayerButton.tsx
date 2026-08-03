@@ -10,12 +10,14 @@ type RemovePlayerButtonProps = {
 export default function RemovePlayerButton({
   player,
 }: RemovePlayerButtonProps) {
-  const { removePlayer } = useFantasy();
+  const { removePlayer, isLocked } = useFantasy();
 
   return (
     <button
       onClick={() => removePlayer(player.id)}
-      className="bg-red-100 hover:bg-red-200 text-red-700 font-semibold px-5 py-2 rounded-lg transition"
+      disabled={isLocked}
+      title={isLocked ? "Тур заблокирован — изменения недоступны" : undefined}
+      className="bg-red-100 hover:bg-red-200 disabled:opacity-40 disabled:cursor-not-allowed text-red-700 font-semibold px-5 py-2 rounded-lg transition"
     >
       Убрать
     </button>

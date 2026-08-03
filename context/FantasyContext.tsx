@@ -71,8 +71,33 @@ export function FantasyProvider({
   const [captainId, setCaptainId] = useState<string | null>(null);
 
   const [round, setRound] = useState<ActiveRound | null>(null);
-  const [isLocked, setIsLocked] = useState(false);
+  const [isAdminLocked, setIsAdminLocked] = useState(false);
+  const [isTimeLocked, setIsTimeLocked] = useState(false);
   const [isSquadLoading, setIsSquadLoading] = useState(true);
+
+  // Состав заблокирован, если это выставил админ ИЛИ если время начала
+  // тура (round.lock_at) уже прошло. Перепроверяем по таймеру, а не при
+  // каждом рендере (Date.now() в теле рендера — impure и запрещено
+  // правилами React), чтобы блокировка сработала сама, даже если
+  // пользователь просто держит вкладку открытой дольше дедлайна.
+  useEffect(() => {
+    if (!round) {
+      queueMicrotask(() => setIsTimeLocked(false));
+      return;
+    }
+
+    function checkLock() {
+      queueMicrotask(() =>
+        setIsTimeLocked(new Date(round!.lock_at).getTime() <= Date.now())
+      );
+    }
+
+    checkLock();
+    const interval = setInterval(checkLock, 30000);
+    return () => clearInterval(interval);
+  }, [round]);
+
+  const isLocked = isAdminLocked || isTimeLocked;
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -116,7 +141,7 @@ export function FantasyProvider({
         setSquad(emptySquad);
         setCaptainId(null);
         setRound(null);
-        setIsLocked(false);
+        setIsAdminLocked(false);
         setIsSquadLoading(false);
         return;
       }
@@ -141,7 +166,7 @@ export function FantasyProvider({
         setSquad(emptySquad);
         setCaptainId(null);
         setRound(null);
-        setIsLocked(false);
+        setIsAdminLocked(false);
         setIsSquadLoading(false);
         return;
       }
@@ -166,7 +191,7 @@ export function FantasyProvider({
       if (!existingSquad) {
         setSquad(emptySquad);
         setCaptainId(null);
-        setIsLocked(false);
+        setIsAdminLocked(false);
         setIsSquadLoading(false);
         return;
       }
@@ -217,7 +242,7 @@ export function FantasyProvider({
 
       setSquad(nextSquad);
       setCaptainId(existingSquad.captain_player_id);
-      setIsLocked(existingSquad.is_locked);
+      setIsAdminLocked(existingSquad.is_locked);
       setIsSquadLoading(false);
     }
 
@@ -284,8 +309,24 @@ export function FantasyProvider({
     setCaptainId(playerId);
   }
 
+  // База (RLS) — последний рубеж защиты от записи после блокировки тура,
+  // на случай если клиентская проверка isLocked не успела сработать
+  // (например, время истекло прямо во время сохранения). Её сообщение об
+  // ошибке техническое ("new row violates row-level security policy"),
+  // подменяем на понятное.
+  function friendlyError(message: string): string {
+    return message.toLowerCase().includes("policy")
+      ? "Тур уже заблокирован — время выбора состава истекло"
+      : message;
+  }
+
   async function saveSquad() {
     if (!user || !round) return;
+
+    if (isLocked) {
+      setSaveError("Тур уже заблокирован — время выбора состава истекло");
+      return;
+    }
 
     setIsSaving(true);
     setSaveError(null);
@@ -319,7 +360,7 @@ export function FantasyProvider({
         .eq("id", currentSquadId);
 
       if (updateError) {
-        setSaveError(updateError.message);
+        setSaveError(friendlyError(updateError.message));
         setIsSaving(false);
         return;
       }
@@ -341,7 +382,9 @@ export function FantasyProvider({
         .single();
 
       if (insertError || !newSquad) {
-        setSaveError(insertError?.message ?? "Не удалось создать состав");
+        setSaveError(
+          insertError ? friendlyError(insertError.message) : "Не удалось создать состав"
+        );
         setIsSaving(false);
         return;
       }
@@ -362,13 +405,13 @@ export function FantasyProvider({
         .insert(rows);
 
       if (rosterError) {
-        setSaveError(rosterError.message);
+        setSaveError(friendlyError(rosterError.message));
         setIsSaving(false);
         return;
       }
     }
 
-    setIsLocked(false);
+    setIsAdminLocked(false);
     setSaveSuccess(true);
     setIsSaving(false);
   }

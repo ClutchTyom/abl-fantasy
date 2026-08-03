@@ -134,6 +134,10 @@ export default function TeamPage() {
           {round ? (
             <p className="font-semibold">
               Сохранение состава на: <span className="text-blue-600">{round.name}</span>
+              <span className="text-gray-400 font-normal">
+                {" "}
+                · блокировка {new Date(round.lock_at).toLocaleString("ru-RU")}
+              </span>
             </p>
           ) : (
             <p className="text-gray-500">
