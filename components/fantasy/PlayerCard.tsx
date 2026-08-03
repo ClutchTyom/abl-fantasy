@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Player } from "@/types/player";
 import Badge, { BadgeColor } from "@/components/ui/Badge";
 import AddPlayerButton from "@/components/fantasy/AddPlayerButton";
@@ -12,7 +13,7 @@ type PlayerCardProps = {
   variant?: "list" | "team";
 };
 
-const POSITION_COLORS: Record<Player["position"], BadgeColor> = {
+export const POSITION_COLORS: Record<Player["position"], BadgeColor> = {
   PG: "blue",
   SG: "green",
   SF: "purple",
@@ -63,7 +64,14 @@ export default function PlayerCard({
           <PlayerAvatar player={player} />
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="text-lg font-bold truncate">{player.full_name}</h3>
+              <h3 className="text-lg font-bold truncate">
+                <Link
+                  href={`/players/${player.id}`}
+                  className="hover:text-blue-600 hover:underline"
+                >
+                  {player.full_name}
+                </Link>
+              </h3>
               {isCaptain && (
                 <span className="text-xs font-bold bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full">
                   ×2
