@@ -65,7 +65,7 @@ export function FantasyProvider({
 }: {
   children: React.ReactNode;
 }) {
-  const { user } = useUser();
+  const { user, isLoading: userLoading } = useUser();
 
   const [squad, setSquad] = useState<Squad>(emptySquad);
   const [captainId, setCaptainId] = useState<string | null>(null);
@@ -101,6 +101,13 @@ export function FantasyProvider({
     let cancelled = false;
 
     async function loadRoundAndSquad() {
+      // useUser() ещё не разобрался, авторизован ли пользователь — не
+      // трогаем состав, иначе на мгновение "сбросим" его в пустой, пока
+      // useUser() параллельно (в этом же компоненте) ещё резолвится, и
+      // именно в это окно можно успеть добавить игрока, который тут же
+      // будет затёрт.
+      if (userLoading) return;
+
       setIsSquadLoading(true);
       setSaveSuccess(false);
       setSaveError(null);
@@ -177,7 +184,7 @@ export function FantasyProvider({
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, userLoading]);
 
   function addPlayer(player: Player) {
     setSquad((current) => {
