@@ -121,13 +121,22 @@ export async function recalculatePlayerPrices(): Promise<PriceRecalcSummary> {
 
   const rows = Array.from(prices.entries()).map(([id, price]) => ({ id, price }));
 
-  if (rows.length > 0) {
-    const { error: upsertError } = await supabase
-      .from("players")
-      .upsert(rows, { onConflict: "id" });
+  // Точечный update, а не upsert: upsert строит INSERT ... ON CONFLICT DO
+  // UPDATE, а для этого Postgres требует заполненными все NOT NULL поля
+  // строки (team_id, full_name, position...) ещё до проверки конфликта,
+  // хотя реально всегда происходит только UPDATE уже существующего игрока.
+  const CONCURRENCY = 20;
+  for (let i = 0; i < rows.length; i += CONCURRENCY) {
+    const batch = rows.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(
+      batch.map(({ id, price }) =>
+        supabase.from("players").update({ price }).eq("id", id)
+      )
+    );
 
-    if (upsertError) {
-      throw new Error(`Не удалось сохранить новые цены: ${upsertError.message}`);
+    const failed = results.find((r) => r.error);
+    if (failed?.error) {
+      throw new Error(`Не удалось сохранить новые цены: ${failed.error.message}`);
     }
   }
 
