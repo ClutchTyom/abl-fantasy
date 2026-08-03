@@ -35,7 +35,7 @@ export type ActiveRound = {
 type SquadPlayerRow = {
   slot: Slot;
   is_captain: boolean;
-  players: Player | null;
+  player_id: string;
 };
 
 type FantasyContextType = {
@@ -130,7 +130,9 @@ export function FantasyProvider({
         .maybeSingle();
 
       if (roundError) {
-        console.error("[FantasyContext] Не удалось загрузить активный тур:", roundError);
+        console.error(
+          `[FantasyContext] Не удалось загрузить активный тур: ${roundError.message} (code: ${roundError.code}, details: ${roundError.details}, hint: ${roundError.hint})`
+        );
       }
 
       if (cancelled) return;
@@ -154,7 +156,9 @@ export function FantasyProvider({
         .maybeSingle();
 
       if (squadError) {
-        console.error("[FantasyContext] Не удалось загрузить сохранённый состав:", squadError);
+        console.error(
+          `[FantasyContext] Не удалось загрузить сохранённый состав: ${squadError.message} (code: ${squadError.code}, details: ${squadError.details}, hint: ${squadError.hint})`
+        );
       }
 
       if (cancelled) return;
@@ -169,21 +173,47 @@ export function FantasyProvider({
 
       const { data: rosterRows, error: rosterError } = await supabase
         .from("fantasy_squad_players")
-        .select("slot, is_captain, players(*, teams(name, short_name))")
+        .select("slot, is_captain, player_id")
         .eq("squad_id", existingSquad.id);
 
       if (rosterError) {
-        console.error("[FantasyContext] Не удалось загрузить игроков состава:", rosterError);
+        console.error(
+          `[FantasyContext] Не удалось загрузить игроков состава: ${rosterError.message} (code: ${rosterError.code}, details: ${rosterError.details}, hint: ${rosterError.hint})`
+        );
       }
 
       if (cancelled) return;
 
+      const rows = (rosterRows as SquadPlayerRow[] | null) ?? [];
+      const playerIds = rows.map((row) => row.player_id);
+
       const nextSquad: Squad = { ...emptySquad };
-      (rosterRows as unknown as SquadPlayerRow[] | null)?.forEach((row) => {
-        if (row.players) {
-          nextSquad[row.slot] = row.players;
+
+      if (playerIds.length > 0) {
+        const { data: playersData, error: playersError } = await supabase
+          .from("players")
+          .select("*, teams(name, short_name)")
+          .in("id", playerIds);
+
+        if (playersError) {
+          console.error(
+            `[FantasyContext] Не удалось загрузить карточки игроков: ${playersError.message} (code: ${playersError.code}, details: ${playersError.details}, hint: ${playersError.hint})`
+          );
         }
-      });
+
+        if (cancelled) return;
+
+        const playersById = new Map(
+          ((playersData as Player[] | null) ?? []).map((p) => [p.id, p])
+        );
+
+        rows.forEach((row) => {
+          const player = playersById.get(row.player_id);
+          if (player) {
+            nextSquad[row.slot] = player;
+          }
+        });
+      }
 
       setSquad(nextSquad);
       setCaptainId(existingSquad.captain_player_id);
