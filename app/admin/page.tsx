@@ -284,12 +284,20 @@ const filteredMatches = matches.filter((match) => {
     <main className="max-w-6xl mx-auto p-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-4xl font-bold">Админ-панель</h1>
-        <Link
-          href="/admin/import"
-          className="bg-gray-900 hover:bg-gray-700 text-white font-semibold px-5 py-2 rounded-lg transition"
-        >
-          Импорт из ABL
-        </Link>
+        <div className="flex gap-3">
+          <Link
+            href="/admin/pricing"
+            className="bg-gray-900 hover:bg-gray-700 text-white font-semibold px-5 py-2 rounded-lg transition"
+          >
+            Пересчёт цен
+          </Link>
+          <Link
+            href="/admin/import"
+            className="bg-gray-900 hover:bg-gray-700 text-white font-semibold px-5 py-2 rounded-lg transition"
+          >
+            Импорт из ABL
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -363,8 +371,8 @@ const filteredMatches = matches.filter((match) => {
 
               <input
                 type="number"
-                min={6}
-                max={13}
+                min={8}
+                max={17}
                 value={playerPrice}
                 onChange={(e) => setPlayerPrice(Number(e.target.value))}
                 className="w-24 border rounded-lg px-4 py-2"

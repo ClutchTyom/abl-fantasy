@@ -79,8 +79,8 @@ export default function PlayerRow({
       <td className="p-3">
         <input
           type="number"
-          min={6}
-          max={13}
+          min={8}
+          max={17}
           value={price}
           onChange={(e) => setPrice(Number(e.target.value))}
           className="w-20 border rounded-lg px-2 py-1"
