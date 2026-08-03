@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   useFantasy,
   STARTING_SLOTS,
@@ -12,7 +12,6 @@ import PlayerCard from "@/components/fantasy/PlayerCard";
 import RoundResults from "@/components/fantasy/RoundResults";
 import { useUser } from "@/lib/useUser";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabaseClient";
 
 const SLOT_LABELS: Record<Slot, string> = {
   PG: "Разыгрывающий (PG)",
@@ -38,22 +37,24 @@ function EmptySlot({ label }: { label: string }) {
   );
 }
 
-type Round = {
-  id: string;
-  name: string;
-  status: string;
-  lock_at: string;
-};
-
 export default function TeamPage() {
-const { squad, budget, spent, remaining, captainId, setCaptain } = useFantasy();
+  const {
+    squad,
+    budget,
+    spent,
+    remaining,
+    captainId,
+    setCaptain,
+    round,
+    isSquadLoading,
+    isLocked,
+    isSaving,
+    saveError,
+    saveSuccess,
+    saveSquad,
+  } = useFantasy();
   const { user, isLoading } = useUser();
   const router = useRouter();
-
-  const [round, setRound] = useState<Round | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -61,113 +62,9 @@ const { squad, budget, spent, remaining, captainId, setCaptain } = useFantasy();
     }
   }, [isLoading, user, router]);
 
-  useEffect(() => {
-    async function loadRound() {
-      const { data } = await supabase
-        .from("rounds")
-        .select("id, name, status, lock_at")
-        .eq("status", "upcoming")
-        .order("lock_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-
-      setRound(data);
-    }
-
-    loadRound();
-  }, []);
-
   const filledSlots = ALL_SLOTS.filter((slot) => squad[slot]).length;
 
-  async function handleSaveTeam() {
-    if (!user || !round) return;
-
-    setIsSaving(true);
-    setSaveError(null);
-    setSaveSuccess(false);
-
-    const { data: existingSquad } = await supabase
-      .from("fantasy_squads")
-      .select("id, is_locked")
-      .eq("user_id", user.id)
-      .eq("round_id", round.id)
-      .maybeSingle();
-
-    if (existingSquad?.is_locked) {
-      setSaveError("Состав на этот тур уже заблокирован");
-      setIsSaving(false);
-      return;
-    }
-
-    let squadId: string;
-
-    if (existingSquad) {
-      squadId = existingSquad.id;
-
-const { error: updateError } = await supabase
-        .from("fantasy_squads")
-        .update({
-          budget_spent: spent,
-          captain_player_id: captainId,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", squadId);
-
-      if (updateError) {
-        setSaveError(updateError.message);
-        setIsSaving(false);
-        return;
-      }
-
-      await supabase
-        .from("fantasy_squad_players")
-        .delete()
-        .eq("squad_id", squadId);
-    } else {
-      const { data: newSquad, error: insertError } = await supabase
-        .from("fantasy_squads")
-        .insert({
-          user_id: user.id,
-          round_id: round.id,
-          budget_spent: spent,
-          captain_player_id: captainId,
-        })
-        .select("id")
-        .single();
-
-      if (insertError || !newSquad) {
-        setSaveError(insertError?.message ?? "Не удалось создать состав");
-        setIsSaving(false);
-        return;
-      }
-
-      squadId = newSquad.id;
-    }
-
-    const rows = ALL_SLOTS.filter((slot) => squad[slot]).map((slot) => ({
-      squad_id: squadId,
-      player_id: squad[slot]!.id,
-      slot,
-      is_captain: squad[slot]!.id === captainId,
-    }));
-
-    if (rows.length > 0) {
-      const { error: rosterError } = await supabase
-        .from("fantasy_squad_players")
-        .insert(rows);
-
-      if (rosterError) {
-        setSaveError(rosterError.message);
-        setIsSaving(false);
-        return;
-      }
-    }
-
-    setSaveSuccess(true);
-    setIsSaving(false);
-  }
-
-  if (isLoading) {
+  if (isLoading || isSquadLoading) {
     return <p className="p-8">Загрузка...</p>;
   }
 
@@ -209,7 +106,8 @@ const { error: updateError } = await supabase
         <select
           value={captainId ?? ""}
           onChange={(e) => setCaptain(e.target.value || null)}
-          className="border rounded-lg px-4 py-2 w-full max-w-md"
+          disabled={isLocked}
+          className="border rounded-lg px-4 py-2 w-full max-w-md disabled:opacity-50"
         >
           <option value="">Не выбран</option>
           {ALL_SLOTS.filter((slot) => squad[slot]).map((slot) => (
@@ -234,12 +132,17 @@ const { error: updateError } = await supabase
           <p className="text-sm text-gray-500 mt-1">
             Заполнено слотов: {filledSlots} из {ALL_SLOTS.length}
           </p>
+          {isLocked && (
+            <p className="text-amber-600 text-sm mt-1">
+              Состав на этот тур заблокирован — изменения недоступны
+            </p>
+          )}
         </div>
 
         <div className="text-right">
           <button
-            onClick={handleSaveTeam}
-            disabled={!round || isSaving || remaining < 0}
+            onClick={saveSquad}
+            disabled={!round || isSaving || isLocked || remaining < 0}
             className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-lg transition"
           >
             {isSaving ? "Сохраняем..." : "Сохранить состав"}
