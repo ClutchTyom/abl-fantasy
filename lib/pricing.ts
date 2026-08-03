@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabaseClient";
 import { calculateFantasyPoints } from "@/lib/fantasyPoints";
-import { StatLine } from "@/types/playerMatchStats";
+import { fetchAllRows } from "@/lib/fetchAll";
+import { PlayerMatchStats, StatLine } from "@/types/playerMatchStats";
 
 export const MIN_PRICE = 8;
 export const MAX_PRICE = 17;
@@ -67,27 +68,45 @@ export type PriceRecalcSummary = {
 };
 
 export async function recalculatePlayerPrices(): Promise<PriceRecalcSummary> {
-  const { data: players, error: playersError } = await supabase
-    .from("players")
-    .select("id");
+  let players: { id: string }[];
+  let statsRows: Pick<
+    PlayerMatchStats,
+    | "player_id"
+    | "two_pt_made"
+    | "two_pt_miss"
+    | "three_pt_made"
+    | "three_pt_miss"
+    | "ft_made"
+    | "ft_miss"
+    | "rebounds"
+    | "assists"
+    | "steals"
+    | "blocks"
+    | "turnovers"
+  >[];
 
-  if (playersError) {
-    throw new Error(`Не удалось загрузить игроков: ${playersError.message}`);
-  }
-
-  const { data: statsRows, error: statsError } = await supabase
-    .from("player_match_stats")
-    .select(
-      "player_id, two_pt_made, two_pt_miss, three_pt_made, three_pt_miss, ft_made, ft_miss, rebounds, assists, steals, blocks, turnovers"
+  try {
+    players = await fetchAllRows<{ id: string }>((from, to) =>
+      supabase.from("players").select("id").range(from, to)
     );
 
-  if (statsError) {
-    throw new Error(`Не удалось загрузить статистику: ${statsError.message}`);
+    statsRows = await fetchAllRows((from, to) =>
+      supabase
+        .from("player_match_stats")
+        .select(
+          "player_id, two_pt_made, two_pt_miss, three_pt_made, three_pt_miss, ft_made, ft_miss, rebounds, assists, steals, blocks, turnovers"
+        )
+        .range(from, to)
+    );
+  } catch (err) {
+    throw new Error(
+      `Не удалось загрузить игроков/статистику: ${err instanceof Error ? err.message : err}`
+    );
   }
 
   const totalsByPlayer = new Map<string, { games: number; points: number }>();
 
-  (statsRows ?? []).forEach((row) => {
+  statsRows.forEach((row) => {
     const stats: StatLine = {
       two_pt_made: row.two_pt_made,
       two_pt_miss: row.two_pt_miss,
@@ -108,7 +127,7 @@ export async function recalculatePlayerPrices(): Promise<PriceRecalcSummary> {
     totalsByPlayer.set(row.player_id, current);
   });
 
-  const performances: PlayerPerformance[] = (players ?? []).map((player) => {
+  const performances: PlayerPerformance[] = players.map((player) => {
     const totals = totalsByPlayer.get(player.id);
     return {
       playerId: player.id,

@@ -5,6 +5,7 @@ import PlayerCard from "@/components/fantasy/PlayerCard";
 import SectionTitle from "@/components/ui/SectionTitle";
 import { useFantasy } from "@/context/FantasyContext";
 import { supabase } from "@/lib/supabaseClient";
+import { fetchAllRows } from "@/lib/fetchAll";
 import { Player } from "@/types/player";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/lib/useUser";
@@ -20,6 +21,7 @@ export default function PlayersPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [positionFilter, setPositionFilter] = useState<string>("ALL");
+  const [divisionFilter, setDivisionFilter] = useState<string>("ALL");
   const [teamFilter, setTeamFilter] = useState<string>("ALL");
 
   useEffect(() => {
@@ -30,15 +32,17 @@ export default function PlayersPage() {
 
   useEffect(() => {
     async function loadPlayers() {
-      const { data, error } = await supabase
-        .from("players")
-        .select("*, teams(name, short_name)")
-        .order("price", { ascending: false });
-
-      if (error) {
-        setError(error.message);
-      } else {
-        setPlayers(data ?? []);
+      try {
+        const data = await fetchAllRows<Player>((from, to) =>
+          supabase
+            .from("players")
+            .select("*, teams(name, short_name, division)")
+            .order("price", { ascending: false })
+            .range(from, to)
+        );
+        setPlayers(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Не удалось загрузить игроков");
       }
 
       setIsLoading(false);
@@ -47,19 +51,36 @@ export default function PlayersPage() {
     loadPlayers();
   }, []);
 
+  const divisionOptions = useMemo(() => {
+    const divisions = players
+      .map((p) => p.teams?.division)
+      .filter((division): division is string => Boolean(division));
+    return Array.from(new Set(divisions)).sort();
+  }, [players]);
+
   const teamOptions = useMemo(() => {
     const names = players
+      .filter(
+        (p) => divisionFilter === "ALL" || p.teams?.division === divisionFilter
+      )
       .map((p) => p.teams?.name)
       .filter((name): name is string => Boolean(name));
     return Array.from(new Set(names)).sort();
-  }, [players]);
+  }, [players, divisionFilter]);
+
+  function handleDivisionChange(value: string) {
+    setDivisionFilter(value);
+    setTeamFilter("ALL");
+  }
 
   const filteredPlayers = players.filter((player) => {
     const matchesPosition =
       positionFilter === "ALL" || player.position === positionFilter;
+    const matchesDivision =
+      divisionFilter === "ALL" || player.teams?.division === divisionFilter;
     const matchesTeam =
       teamFilter === "ALL" || player.teams?.name === teamFilter;
-    return matchesPosition && matchesTeam;
+    return matchesPosition && matchesDivision && matchesTeam;
   });
 
   if (userLoading || isSquadLoading) {
@@ -98,6 +119,22 @@ export default function PlayersPage() {
             {POSITIONS.map((pos) => (
               <option key={pos} value={pos}>
                 {pos}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Дивизион</label>
+          <select
+            value={divisionFilter}
+            onChange={(e) => handleDivisionChange(e.target.value)}
+            className="border rounded-lg px-4 py-2"
+          >
+            <option value="ALL">Все дивизионы</option>
+            {divisionOptions.map((division) => (
+              <option key={division} value={division}>
+                {division}
               </option>
             ))}
           </select>

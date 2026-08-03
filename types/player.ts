@@ -8,5 +8,6 @@ export type Player = {
   teams: {
     name: string;
     short_name: string;
+    division: string | null;
   } | null;
 };

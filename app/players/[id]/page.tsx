@@ -60,7 +60,7 @@ export default function PlayerDetailPage() {
 
       const { data: playerData, error: playerError } = await supabase
         .from("players")
-        .select("*, teams(name, short_name)")
+        .select("*, teams(name, short_name, division)")
         .eq("id", playerId)
         .single();
 
@@ -192,7 +192,12 @@ export default function PlayerDetailPage() {
             <Badge text={player.position} color={POSITION_COLORS[player.position]} />
           </div>
           {player.teams && (
-            <p className="text-gray-500 mt-1">{player.teams.name}</p>
+            <Link
+              href={`/teams/${player.team_id}`}
+              className="text-gray-500 mt-1 inline-block hover:text-blue-600 hover:underline"
+            >
+              {player.teams.name}
+            </Link>
           )}
         </div>
 

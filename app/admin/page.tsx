@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useProfile } from "@/lib/useProfile";
 import { supabase } from "@/lib/supabaseClient";
+import { fetchAllRows } from "@/lib/fetchAll";
 import { Player } from "@/types/player";
 import PlayerRow from "@/components/admin/PlayerRow";
 import TeamRow from "@/components/admin/TeamRow";
@@ -62,32 +63,36 @@ export default function AdminPage() {
   async function loadData() {
     setLoadingData(true);
 
-    const { data: teamsData } = await supabase
-      .from("teams")
-      .select("id, name, short_name")
-      .order("name");
+    const teamsData = await fetchAllRows<Team>((from, to) =>
+      supabase.from("teams").select("id, name, short_name").order("name").range(from, to)
+    );
 
-    const { data: playersData } = await supabase
-      .from("players")
-      .select("*, teams(name, short_name)")
-      .order("full_name");
+    const playersData = await fetchAllRows<Player>((from, to) =>
+      supabase
+        .from("players")
+        .select("*, teams(name, short_name, division)")
+        .order("full_name")
+        .range(from, to)
+    );
 
-    const { data: roundsData } = await supabase
-      .from("rounds")
-      .select("id, name, status, lock_at")
-      .order("lock_at");
+    const roundsData = await fetchAllRows<Round>((from, to) =>
+      supabase.from("rounds").select("id, name, status, lock_at").order("lock_at").range(from, to)
+    );
 
-    const { data: matchesData } = await supabase
-      .from("matches")
-      .select(
-        "*, rounds(name), home_team:teams!matches_home_team_id_fkey(name), away_team:teams!matches_away_team_id_fkey(name)"
-      )
-      .order("starts_at");
+    const matchesData = await fetchAllRows<Match>((from, to) =>
+      supabase
+        .from("matches")
+        .select(
+          "*, rounds(name), home_team:teams!matches_home_team_id_fkey(name), away_team:teams!matches_away_team_id_fkey(name)"
+        )
+        .order("starts_at")
+        .range(from, to)
+    );
 
-    setTeams(teamsData ?? []);
-    setPlayers(playersData ?? []);
-    setRounds(roundsData ?? []);
-    setMatches((matchesData as unknown as Match[]) ?? []);
+    setTeams(teamsData);
+    setPlayers(playersData);
+    setRounds(roundsData);
+    setMatches(matchesData);
     setLoadingData(false);
   }
 
@@ -235,7 +240,7 @@ export default function AdminPage() {
     setPlayers((current) =>
       current.map((p) =>
         p.team_id === teamId
-          ? { ...p, teams: { name, short_name: shortName } }
+          ? { ...p, teams: { name, short_name: shortName, division: p.teams?.division ?? null } }
           : p
       )
     );
