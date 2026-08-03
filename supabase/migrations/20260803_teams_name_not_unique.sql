@@ -6,3 +6,4 @@
 -- уже гарантирована через teams.abl_id, а отображаемое short_name
 -- разруливается генератором в lib/abl/sync.ts.
 alter table teams drop constraint if exists teams_name_key;
+drop index if exists teams_name_key;
