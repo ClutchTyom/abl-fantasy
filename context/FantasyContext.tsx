@@ -121,13 +121,17 @@ export function FantasyProvider({
         return;
       }
 
-      const { data: activeRound } = await supabase
+      const { data: activeRound, error: roundError } = await supabase
         .from("rounds")
         .select("id, name, status, lock_at")
         .eq("status", "upcoming")
         .order("lock_at", { ascending: true })
         .limit(1)
         .maybeSingle();
+
+      if (roundError) {
+        console.error("[FantasyContext] Не удалось загрузить активный тур:", roundError);
+      }
 
       if (cancelled) return;
 
@@ -142,12 +146,16 @@ export function FantasyProvider({
 
       setRound(activeRound);
 
-      const { data: existingSquad } = await supabase
+      const { data: existingSquad, error: squadError } = await supabase
         .from("fantasy_squads")
         .select("id, captain_player_id, is_locked")
         .eq("user_id", userId)
         .eq("round_id", activeRound.id)
         .maybeSingle();
+
+      if (squadError) {
+        console.error("[FantasyContext] Не удалось загрузить сохранённый состав:", squadError);
+      }
 
       if (cancelled) return;
 
@@ -159,10 +167,14 @@ export function FantasyProvider({
         return;
       }
 
-      const { data: rosterRows } = await supabase
+      const { data: rosterRows, error: rosterError } = await supabase
         .from("fantasy_squad_players")
         .select("slot, is_captain, players(*, teams(name, short_name))")
         .eq("squad_id", existingSquad.id);
+
+      if (rosterError) {
+        console.error("[FantasyContext] Не удалось загрузить игроков состава:", rosterError);
+      }
 
       if (cancelled) return;
 
