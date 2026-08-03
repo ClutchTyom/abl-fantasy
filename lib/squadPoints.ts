@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabaseClient";
 import { calculateFantasyPoints } from "@/lib/fantasyPoints";
+import { fetchAllRows } from "@/lib/fetchAll";
 import { StatLine } from "@/types/playerMatchStats";
 
 export type SquadPlayerResult = {
@@ -12,37 +13,45 @@ export type SquadPlayerResult = {
 export type SquadResult = {
   squadId: string;
   userId: string;
-  roundId: string;
-  roundName: string;
-  roundStatus: string;
+  weekId: string;
+  weekStartsAt: string;
+  weekEndsAt: string;
   totalPoints: number;
   players: SquadPlayerResult[];
 };
 
-// Очки всех сохранённых составов по турам со статусом live/completed —
-// используется и для личных результатов на "Моя команда", и для общего
-// рейтинга. Никаких embed-джойнов через select("players(...)") — эта связь
-// не резолвится (у fantasy_squad_players нет нужного foreign key для
-// автосвязи), поэтому игроки и очки собираются отдельными запросами и
-// объединяются на клиенте.
+type SquadRow = {
+  id: string;
+  user_id: string;
+  round_id: string;
+  fantasy_weeks: { starts_at: string; ends_at: string } | null;
+};
+
+// Очки всех сохранённых составов по фэнтези-неделям, которые уже начались
+// (starts_at <= сейчас) — используется и для личных результатов на "Моя
+// команда", и для общего рейтинга. Очки игрока за неделю = сумма фэнтези-
+// очков по ВСЕМ его матчам (любого дивизиона ABL), попавшим в диапазон
+// [starts_at, ends_at) этой недели — не только "его" дивизиона, раз все
+// дивизионы играют по одним и тем же выходным.
+//
+// Никаких embed-джойнов через select("players(...)") — эта связь не
+// резолвится (у fantasy_squad_players нет нужного foreign key для
+// автосвязи), поэтому игроки собираются отдельным запросом и объединяются
+// на клиенте.
 export async function computeAllSquadResults(): Promise<SquadResult[]> {
   const { data: squads } = await supabase
     .from("fantasy_squads")
-    .select("id, user_id, round_id, rounds(name, status)");
+    .select("id, user_id, round_id, fantasy_weeks(starts_at, ends_at)");
 
-  const relevantSquads = (
-    (squads ?? []) as unknown as {
-      id: string;
-      user_id: string;
-      round_id: string;
-      rounds: { name: string; status: string } | null;
-    }[]
-  ).filter((s) => s.rounds?.status === "live" || s.rounds?.status === "completed");
+  const now = Date.now();
+
+  const relevantSquads = ((squads ?? []) as unknown as SquadRow[]).filter(
+    (s) => s.fantasy_weeks && new Date(s.fantasy_weeks.starts_at).getTime() <= now
+  );
 
   if (relevantSquads.length === 0) return [];
 
   const squadIds = relevantSquads.map((s) => s.id);
-  const roundIds = Array.from(new Set(relevantSquads.map((s) => s.round_id)));
 
   const { data: squadPlayers } = await supabase
     .from("fantasy_squad_players")
@@ -64,42 +73,68 @@ export async function computeAllSquadResults(): Promise<SquadResult[]> {
     ])
   );
 
-  const { data: matches } = await supabase
-    .from("matches")
-    .select("id, round_id")
-    .in("round_id", roundIds);
+  // Уникальные недели среди relevantSquads (много пользователей могут
+  // ссылаться на одну и ту же неделю).
+  const weeksById = new Map<string, { starts_at: string; ends_at: string }>();
+  relevantSquads.forEach((s) => {
+    if (s.fantasy_weeks) weeksById.set(s.round_id, s.fantasy_weeks);
+  });
+  const uniqueWeeks = Array.from(weeksById.values());
 
-  const matchIds = (matches ?? []).map((m) => m.id);
+  const overallStart = uniqueWeeks.reduce(
+    (min, w) => (w.starts_at < min ? w.starts_at : min),
+    uniqueWeeks[0].starts_at
+  );
+  const overallEnd = uniqueWeeks.reduce(
+    (max, w) => (w.ends_at > max ? w.ends_at : max),
+    uniqueWeeks[0].ends_at
+  );
 
-  const { data: statsRows } = matchIds.length
-    ? await supabase.from("player_match_stats").select("*").in("match_id", matchIds)
-    : { data: [] };
+  const matches = await fetchAllRows<{ id: string; starts_at: string }>((from, to) =>
+    supabase
+      .from("matches")
+      .select("id, starts_at")
+      .gte("starts_at", overallStart)
+      .lt("starts_at", overallEnd)
+      .range(from, to)
+  );
 
-  // очки игрока в туре = сумма фэнтези-очков по всем его матчам в этом туре
-  const matchToRound = new Map((matches ?? []).map((m) => [m.id, m.round_id]));
-  const pointsByRoundAndPlayer = new Map<string, number>();
+  const matchIds = matches.map((m) => m.id);
 
-  (statsRows ?? []).forEach((row) => {
-    const roundId = matchToRound.get(row.match_id);
-    if (!roundId) return;
+  const statsRows = matchIds.length
+    ? await fetchAllRows<{ match_id: string; player_id: string } & StatLine>((from, to) =>
+        supabase.from("player_match_stats").select("*").in("match_id", matchIds).range(from, to)
+      )
+    : [];
 
-    const stats: StatLine = {
-      two_pt_made: row.two_pt_made,
-      two_pt_miss: row.two_pt_miss,
-      three_pt_made: row.three_pt_made,
-      three_pt_miss: row.three_pt_miss,
-      ft_made: row.ft_made,
-      ft_miss: row.ft_miss,
-      rebounds: row.rebounds,
-      assists: row.assists,
-      steals: row.steals,
-      blocks: row.blocks,
-      turnovers: row.turnovers,
-    };
+  function weekIdForMatch(matchStartsAtMs: number): string | null {
+    for (const [weekId, w] of weeksById) {
+      if (
+        matchStartsAtMs >= new Date(w.starts_at).getTime() &&
+        matchStartsAtMs < new Date(w.ends_at).getTime()
+      ) {
+        return weekId;
+      }
+    }
+    return null;
+  }
 
-    const key = `${roundId}:${row.player_id}`;
-    const current = pointsByRoundAndPlayer.get(key) ?? 0;
-    pointsByRoundAndPlayer.set(key, current + calculateFantasyPoints(stats));
+  const matchToWeek = new Map<string, string>();
+  matches.forEach((m) => {
+    const weekId = weekIdForMatch(new Date(m.starts_at).getTime());
+    if (weekId) matchToWeek.set(m.id, weekId);
+  });
+
+  // очки игрока за неделю = сумма фэнтези-очков по всем его матчам на этой неделе
+  const pointsByWeekAndPlayer = new Map<string, number>();
+
+  statsRows.forEach((row) => {
+    const weekId = matchToWeek.get(row.match_id);
+    if (!weekId) return;
+
+    const key = `${weekId}:${row.player_id}`;
+    const current = pointsByWeekAndPlayer.get(key) ?? 0;
+    pointsByWeekAndPlayer.set(key, current + calculateFantasyPoints(row));
   });
 
   const squadPlayersBySquad = new Map<
@@ -117,7 +152,7 @@ export async function computeAllSquadResults(): Promise<SquadResult[]> {
 
     const players: SquadPlayerResult[] = rows.map((row) => {
       const rawPoints =
-        pointsByRoundAndPlayer.get(`${squad.round_id}:${row.player_id}`) ?? 0;
+        pointsByWeekAndPlayer.get(`${squad.round_id}:${row.player_id}`) ?? 0;
       const points = row.is_captain ? rawPoints * 2 : rawPoints;
 
       return {
@@ -133,9 +168,9 @@ export async function computeAllSquadResults(): Promise<SquadResult[]> {
     return {
       squadId: squad.id,
       userId: squad.user_id,
-      roundId: squad.round_id,
-      roundName: squad.rounds?.name ?? "—",
-      roundStatus: squad.rounds?.status ?? "—",
+      weekId: squad.round_id,
+      weekStartsAt: squad.fantasy_weeks!.starts_at,
+      weekEndsAt: squad.fantasy_weeks!.ends_at,
       totalPoints,
       players,
     };

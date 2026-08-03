@@ -10,6 +10,7 @@ import {
 } from "@/context/FantasyContext";
 import PlayerCard from "@/components/fantasy/PlayerCard";
 import RoundResults from "@/components/fantasy/RoundResults";
+import { formatFantasyWeekName } from "@/lib/fantasyWeeks";
 import { useUser } from "@/lib/useUser";
 import { useRouter } from "next/navigation";
 
@@ -134,16 +135,15 @@ export default function TeamPage() {
         <div>
           {round ? (
             <p className="font-semibold">
-              Сохранение состава на: <span className="text-blue-600">{round.name}</span>
+              Сохранение состава на:{" "}
+              <span className="text-blue-600">{formatFantasyWeekName(round.starts_at)}</span>
               <span className="text-gray-400 font-normal">
                 {" "}
-                · блокировка {new Date(round.lock_at).toLocaleString("ru-RU")}
+                · блокировка {new Date(round.starts_at).toLocaleString("ru-RU")}
               </span>
             </p>
           ) : (
-            <p className="text-gray-500">
-              Нет активного тура для сохранения (создай через админ-панель или SQL)
-            </p>
+            <p className="text-gray-500">Не удалось определить активный тур</p>
           )}
           <p
             className={`text-sm mt-1 ${

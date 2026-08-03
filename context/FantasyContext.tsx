@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { Player } from "@/types/player";
 import { supabase } from "@/lib/supabaseClient";
 import { useUser } from "@/lib/useUser";
+import { getOrCreateCurrentFantasyWeek } from "@/lib/fantasyWeeks";
 
 export const STARTING_SLOTS = ["PG", "SG", "SF", "PF", "C"] as const;
 export const BENCH_SLOTS = ["BENCH1", "BENCH2", "BENCH3", "BENCH4", "BENCH5"] as const;
@@ -27,9 +28,8 @@ const emptySquad: Squad = {
 
 export type ActiveRound = {
   id: string;
-  name: string;
-  status: string;
-  lock_at: string;
+  starts_at: string;
+  ends_at: string;
 };
 
 type SquadPlayerRow = {
@@ -89,7 +89,7 @@ export function FantasyProvider({
 
     function checkLock() {
       queueMicrotask(() =>
-        setIsTimeLocked(new Date(round!.lock_at).getTime() <= Date.now())
+        setIsTimeLocked(new Date(round!.starts_at).getTime() <= Date.now())
       );
     }
 
@@ -148,23 +148,14 @@ export function FantasyProvider({
         return;
       }
 
-      const { data: activeRound, error: roundError } = await supabase
-        .from("rounds")
-        .select("id, name, status, lock_at")
-        .eq("status", "upcoming")
-        .order("lock_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
+      let activeRound: ActiveRound;
 
-      if (roundError) {
+      try {
+        activeRound = await getOrCreateCurrentFantasyWeek();
+      } catch (err) {
         console.error(
-          `[FantasyContext] Не удалось загрузить активный тур: ${roundError.message} (code: ${roundError.code}, details: ${roundError.details}, hint: ${roundError.hint})`
+          `[FantasyContext] Не удалось загрузить активный тур: ${err instanceof Error ? err.message : err}`
         );
-      }
-
-      if (cancelled) return;
-
-      if (!activeRound) {
         setSquad(emptySquad);
         setCaptainId(null);
         setRound(null);
@@ -172,6 +163,8 @@ export function FantasyProvider({
         setIsSquadLoading(false);
         return;
       }
+
+      if (cancelled) return;
 
       setRound(activeRound);
 
@@ -219,7 +212,7 @@ export function FantasyProvider({
       if (playerIds.length > 0) {
         const { data: playersData, error: playersError } = await supabase
           .from("players")
-          .select("*, teams(name, short_name)")
+          .select("*, teams(name, short_name, division)")
           .in("id", playerIds);
 
         if (playersError) {
