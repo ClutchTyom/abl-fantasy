@@ -9,6 +9,7 @@ import { fetchAllRows } from "@/lib/fetchAll";
 import { Player } from "@/types/player";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/lib/useUser";
+import { MIN_PRICE, MAX_PRICE } from "@/lib/pricing";
 
 const POSITIONS = ["PG", "SG", "SF", "PF", "C"] as const;
 
@@ -23,6 +24,8 @@ export default function PlayersPage() {
   const [positionFilter, setPositionFilter] = useState<string>("ALL");
   const [divisionFilter, setDivisionFilter] = useState<string>("ALL");
   const [teamFilter, setTeamFilter] = useState<string>("ALL");
+  const [minPriceFilter, setMinPriceFilter] = useState<string>("");
+  const [maxPriceFilter, setMaxPriceFilter] = useState<string>("");
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -80,7 +83,15 @@ export default function PlayersPage() {
       divisionFilter === "ALL" || player.teams?.division === divisionFilter;
     const matchesTeam =
       teamFilter === "ALL" || player.teams?.name === teamFilter;
-    return matchesPosition && matchesDivision && matchesTeam;
+    const matchesMinPrice = !minPriceFilter || player.price >= Number(minPriceFilter);
+    const matchesMaxPrice = !maxPriceFilter || player.price <= Number(maxPriceFilter);
+    return (
+      matchesPosition &&
+      matchesDivision &&
+      matchesTeam &&
+      matchesMinPrice &&
+      matchesMaxPrice
+    );
   });
 
   if (userLoading || isSquadLoading) {
@@ -154,6 +165,33 @@ export default function PlayersPage() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Цена</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              inputMode="numeric"
+              min={MIN_PRICE}
+              max={MAX_PRICE}
+              placeholder={`от ${MIN_PRICE}`}
+              value={minPriceFilter}
+              onChange={(e) => setMinPriceFilter(e.target.value)}
+              className="w-24 border rounded-lg px-4 py-2"
+            />
+            <span className="text-gray-400">—</span>
+            <input
+              type="number"
+              inputMode="numeric"
+              min={MIN_PRICE}
+              max={MAX_PRICE}
+              placeholder={`до ${MAX_PRICE}`}
+              value={maxPriceFilter}
+              onChange={(e) => setMaxPriceFilter(e.target.value)}
+              className="w-24 border rounded-lg px-4 py-2"
+            />
+          </div>
         </div>
       </div>
 
