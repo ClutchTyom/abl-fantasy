@@ -37,6 +37,7 @@ export default function Nav() {
         <Link href="/">Главная</Link>
         <Link href="/players">Игроки</Link>
         <Link href="/team">Моя команда</Link>
+        <Link href="/leaderboard">Рейтинг</Link>
       </div>
 
       <div className="flex gap-4 items-center">
