@@ -50,6 +50,7 @@ type FantasyContextType = {
   round: ActiveRound | null;
   isSquadLoading: boolean;
   isLocked: boolean;
+  isSquadComplete: boolean;
   isSaving: boolean;
   saveError: string | null;
   saveSuccess: boolean;
@@ -110,6 +111,7 @@ export function FantasyProvider({
   }, 0);
 
   const remaining = budget - spent;
+  const isSquadComplete = ALL_SLOTS.every((slot) => squad[slot] !== null);
 
   // Состав команды всегда тянется из аккаунта пользователя, а не из
   // localStorage браузера — иначе на другом устройстве или в другом
@@ -328,6 +330,11 @@ export function FantasyProvider({
       return;
     }
 
+    if (!isSquadComplete) {
+      setSaveError("Заполните все 10 слотов состава перед сохранением");
+      return;
+    }
+
     setIsSaving(true);
     setSaveError(null);
     setSaveSuccess(false);
@@ -430,6 +437,7 @@ export function FantasyProvider({
         round,
         isSquadLoading,
         isLocked,
+        isSquadComplete,
         isSaving,
         saveError,
         saveSuccess,

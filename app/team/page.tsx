@@ -48,6 +48,7 @@ export default function TeamPage() {
     round,
     isSquadLoading,
     isLocked,
+    isSquadComplete,
     isSaving,
     saveError,
     saveSuccess,
@@ -144,8 +145,13 @@ export default function TeamPage() {
               Нет активного тура для сохранения (создай через админ-панель или SQL)
             </p>
           )}
-          <p className="text-sm text-gray-500 mt-1">
+          <p
+            className={`text-sm mt-1 ${
+              isSquadComplete ? "text-gray-500" : "text-amber-600"
+            }`}
+          >
             Заполнено слотов: {filledSlots} из {ALL_SLOTS.length}
+            {!isSquadComplete && " — нужно заполнить все, чтобы сохранить"}
           </p>
           {isLocked && (
             <p className="text-amber-600 text-sm mt-1">
@@ -157,7 +163,7 @@ export default function TeamPage() {
         <div className="text-right">
           <button
             onClick={saveSquad}
-            disabled={!round || isSaving || isLocked || remaining < 0}
+            disabled={!round || isSaving || isLocked || remaining < 0 || !isSquadComplete}
             className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-lg transition"
           >
             {isSaving ? "Сохраняем..." : "Сохранить состав"}
