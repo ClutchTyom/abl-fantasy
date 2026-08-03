@@ -2,12 +2,20 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { User } from "@supabase/supabase-js";
 
+const LINKS = [
+  { href: "/", label: "Главная" },
+  { href: "/players", label: "Игроки" },
+  { href: "/team", label: "Моя команда" },
+  { href: "/leaderboard", label: "Рейтинг" },
+];
+
 export default function Nav() {
   const router = useRouter();
+  const pathname = usePathname();
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
@@ -32,12 +40,26 @@ export default function Nav() {
   }
 
   return (
-    <nav className="border-b bg-white px-6 py-4 flex items-center justify-between">
+    <nav className="sticky top-0 z-10 border-b bg-white/90 backdrop-blur shadow-sm px-6 py-4 flex items-center justify-between">
       <div className="flex gap-6 font-medium">
-        <Link href="/">Главная</Link>
-        <Link href="/players">Игроки</Link>
-        <Link href="/team">Моя команда</Link>
-        <Link href="/leaderboard">Рейтинг</Link>
+        {LINKS.map((link) => {
+          const isActive =
+            link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
+
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={
+                isActive
+                  ? "text-blue-600 font-semibold"
+                  : "text-gray-700 hover:text-blue-600 transition"
+              }
+            >
+              {link.label}
+            </Link>
+          );
+        })}
       </div>
 
       <div className="flex gap-4 items-center">

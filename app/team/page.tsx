@@ -78,24 +78,35 @@ export default function TeamPage() {
 
       <RoundResults userId={user.id} />
 
-      <div className="mb-8 border rounded-xl p-5 bg-white shadow-sm grid grid-cols-3 gap-4 text-center">
-        <div>
-          <p className="text-gray-500 text-sm">Бюджет</p>
-          <p className="text-2xl font-bold">{budget}</p>
+      <div className="mb-8 border rounded-xl p-5 bg-white shadow-sm">
+        <div className="grid grid-cols-3 gap-4 text-center mb-4">
+          <div>
+            <p className="text-gray-500 text-sm">Бюджет</p>
+            <p className="text-2xl font-bold">{budget}</p>
+          </div>
+          <div>
+            <p className="text-gray-500 text-sm">Потрачено</p>
+            <p className="text-2xl font-bold">{spent}</p>
+          </div>
+          <div>
+            <p className="text-gray-500 text-sm">Осталось</p>
+            <p
+              className={`text-2xl font-bold ${
+                remaining < 0 ? "text-red-600" : "text-green-600"
+              }`}
+            >
+              {remaining}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-gray-500 text-sm">Потрачено</p>
-          <p className="text-2xl font-bold">{spent}</p>
-        </div>
-        <div>
-          <p className="text-gray-500 text-sm">Осталось</p>
-          <p
-            className={`text-2xl font-bold ${
-              remaining < 0 ? "text-red-600" : "text-green-600"
+
+        <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${
+              remaining < 0 ? "bg-red-500" : "bg-blue-600"
             }`}
-          >
-            {remaining}
-          </p>
+            style={{ width: `${Math.min(100, (spent / budget) * 100)}%` }}
+          />
         </div>
       </div>
 

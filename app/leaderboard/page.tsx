@@ -110,28 +110,49 @@ export default function LeaderboardPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, index) => (
-                <tr
-                  key={row.userId}
-                  className={`border-b last:border-0 ${
-                    row.userId === user.id ? "bg-blue-50" : ""
-                  }`}
-                >
-                  <td className="p-3 font-bold text-gray-500">{index + 1}</td>
-                  <td className="p-3 font-medium">
-                    {row.username}
-                    {row.userId === user.id && (
-                      <span className="ml-2 text-xs font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-                        Вы
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-3 text-gray-500">{row.roundsPlayed}</td>
-                  <td className="p-3 font-bold text-blue-600">
-                    {row.totalPoints.toFixed(1)}
-                  </td>
-                </tr>
-              ))}
+              {rows.map((row, index) => {
+                const place = index + 1;
+                const medal =
+                  place === 1 ? "🥇" : place === 2 ? "🥈" : place === 3 ? "🥉" : null;
+                const initials =
+                  row.username
+                    .split(" ")
+                    .filter(Boolean)
+                    .map((part) => part[0])
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase() || "?";
+
+                return (
+                  <tr
+                    key={row.userId}
+                    className={`border-b last:border-0 ${
+                      row.userId === user.id ? "bg-blue-50" : ""
+                    }`}
+                  >
+                    <td className="p-3 font-bold text-gray-500">
+                      {medal ?? place}
+                    </td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                          {initials}
+                        </div>
+                        <span className="font-medium">{row.username}</span>
+                        {row.userId === user.id && (
+                          <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                            Вы
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="p-3 text-gray-500">{row.roundsPlayed}</td>
+                    <td className="p-3 font-bold text-blue-600">
+                      {row.totalPoints.toFixed(1)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
