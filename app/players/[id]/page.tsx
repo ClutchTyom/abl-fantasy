@@ -131,7 +131,7 @@ export default function PlayerDetailPage() {
 
   if (error || !player) {
     return (
-      <main className="max-w-4xl mx-auto p-8">
+      <main className="max-w-4xl mx-auto p-4 sm:p-8">
         <p className="text-red-600">Ошибка: {error ?? "Игрок не найден"}</p>
       </main>
     );
@@ -164,12 +164,12 @@ export default function PlayerDetailPage() {
       .toUpperCase() || "?";
 
   return (
-    <main className="max-w-4xl mx-auto p-8">
+    <main className="max-w-4xl mx-auto p-4 sm:p-8">
       <Link href="/players" className="text-blue-600 hover:underline text-sm">
         ← Назад к игрокам
       </Link>
 
-      <div className="mt-4 mb-8 border rounded-xl p-6 bg-white shadow-sm flex items-center gap-5">
+      <div className="mt-4 mb-8 border rounded-xl p-6 bg-white shadow-sm flex flex-col sm:flex-row items-center sm:items-center gap-5 text-center sm:text-left">
         {player.photo_url ? (
           <Image
             src={player.photo_url}
@@ -185,8 +185,10 @@ export default function PlayerDetailPage() {
         )}
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-3xl font-bold">{player.full_name}</h1>
+          <div className="flex items-center justify-center sm:justify-start gap-3 flex-wrap">
+            <h1 className="text-2xl sm:text-3xl font-bold truncate max-w-full">
+              {player.full_name}
+            </h1>
             <Badge text={player.position} color={POSITION_COLORS[player.position]} />
           </div>
           {player.teams && (
@@ -194,7 +196,7 @@ export default function PlayerDetailPage() {
           )}
         </div>
 
-        <div className="text-right flex-shrink-0">
+        <div className="text-center sm:text-right flex-shrink-0">
           <p className="text-sm text-gray-500">Стоимость</p>
           <p className="text-2xl font-bold">💰 {player.price}</p>
         </div>

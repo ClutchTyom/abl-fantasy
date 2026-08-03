@@ -74,7 +74,7 @@ export default function TeamPage() {
   }
 
   return (
-    <main className="max-w-6xl mx-auto p-8">
+    <main className="max-w-6xl mx-auto p-4 sm:p-8">
       <h1 className="text-4xl font-bold mb-8">Моя команда</h1>
 
       <RoundResults userId={user.id} />

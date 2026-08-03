@@ -71,7 +71,7 @@ export default function PlayersPage() {
   }
 
   return (
-    <main className="max-w-6xl mx-auto p-8">
+    <main className="max-w-6xl mx-auto p-4 sm:p-8">
       <SectionTitle>Игроки ABL</SectionTitle>
 
       <div className="mb-8 border rounded-xl p-5 bg-white shadow-sm flex gap-8">

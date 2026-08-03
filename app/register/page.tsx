@@ -49,7 +49,7 @@ export default function RegisterPage() {
   return (
     <main className="min-h-[calc(100vh-73px)] bg-gray-50 flex items-center justify-center p-8">
       <div className="w-full max-w-md bg-white border rounded-2xl shadow-sm p-8">
-        <h1 className="text-3xl font-bold mb-1">Регистрация</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-1">Регистрация</h1>
         <p className="text-gray-500 mb-6">
           Создайте аккаунт и соберите свою фэнтези-команду
         </p>
