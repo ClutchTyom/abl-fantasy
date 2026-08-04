@@ -39,7 +39,7 @@ export default function PlayersPage() {
         const data = await fetchAllRows<Player>((from, to) =>
           supabase
             .from("players")
-            .select("*, teams(name, short_name, division)")
+            .select("*, teams(name, short_name, division, logo_url)")
             .order("price", { ascending: false })
             .range(from, to)
         );

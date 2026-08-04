@@ -58,7 +58,7 @@ async function buildSquadFromRoster(squadId: string): Promise<Squad> {
 
   const { data: playersData, error: playersError } = await supabase
     .from("players")
-    .select("*, teams(name, short_name, division)")
+    .select("*, teams(name, short_name, division, logo_url)")
     .in("id", playerIds);
 
   if (playersError) {

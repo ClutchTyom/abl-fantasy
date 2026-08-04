@@ -12,6 +12,7 @@ export type AblTournamentTeam = {
   team: {
     id: number; // стабильный id команды, используем как внешний ключ
     name: string;
+    logo: { path: string } | null;
   };
 };
 

@@ -70,7 +70,7 @@ export default function AdminPage() {
     const playersData = await fetchAllRows<Player>((from, to) =>
       supabase
         .from("players")
-        .select("*, teams(name, short_name, division)")
+        .select("*, teams(name, short_name, division, logo_url)")
         .order("full_name")
         .range(from, to)
     );
@@ -240,7 +240,15 @@ export default function AdminPage() {
     setPlayers((current) =>
       current.map((p) =>
         p.team_id === teamId
-          ? { ...p, teams: { name, short_name: shortName, division: p.teams?.division ?? null } }
+          ? {
+              ...p,
+              teams: {
+                name,
+                short_name: shortName,
+                division: p.teams?.division ?? null,
+                logo_url: p.teams?.logo_url ?? null,
+              },
+            }
           : p
       )
     );

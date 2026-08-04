@@ -6,6 +6,7 @@ import AddPlayerButton from "@/components/fantasy/AddPlayerButton";
 import RemovePlayerButton from "@/components/fantasy/RemovePlayerButton";
 import CaptainButton from "@/components/fantasy/CaptainButton";
 import Card from "@/components/ui/Card";
+import TeamLogo from "@/components/ui/TeamLogo";
 import { useFantasy } from "@/context/FantasyContext";
 
 type PlayerCardProps = {
@@ -79,9 +80,14 @@ export default function PlayerCard({
               )}
             </div>
             {player.teams && (
-              <p className="text-sm text-gray-500 truncate">
+              <div className="text-sm text-gray-500 truncate flex items-center gap-1.5">
+                <TeamLogo
+                  logoUrl={player.teams.logo_url}
+                  shortName={player.teams.short_name}
+                  size={16}
+                />
                 {player.teams.name}
-              </p>
+              </div>
             )}
           </div>
         </div>

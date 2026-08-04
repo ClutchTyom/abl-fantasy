@@ -10,6 +10,7 @@ import { Player } from "@/types/player";
 import { StatLine } from "@/types/playerMatchStats";
 import { calculateFantasyPoints, calculatePoints } from "@/lib/fantasyPoints";
 import Badge from "@/components/ui/Badge";
+import TeamLogo from "@/components/ui/TeamLogo";
 import { POSITION_COLORS } from "@/components/fantasy/PlayerCard";
 
 type MatchGameLog = StatLine & {
@@ -60,7 +61,7 @@ export default function PlayerDetailPage() {
 
       const { data: playerData, error: playerError } = await supabase
         .from("players")
-        .select("*, teams(name, short_name, division)")
+        .select("*, teams(name, short_name, division, logo_url)")
         .eq("id", playerId)
         .single();
 
@@ -194,8 +195,13 @@ export default function PlayerDetailPage() {
           {player.teams && (
             <Link
               href={`/teams/${player.team_id}`}
-              className="text-gray-500 mt-1 inline-block hover:text-blue-600 hover:underline"
+              className="text-gray-500 mt-1 flex items-center justify-center sm:justify-start gap-1.5 hover:text-blue-600 hover:underline"
             >
+              <TeamLogo
+                logoUrl={player.teams.logo_url}
+                shortName={player.teams.short_name}
+                size={18}
+              />
               {player.teams.name}
             </Link>
           )}

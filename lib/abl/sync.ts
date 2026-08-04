@@ -91,6 +91,7 @@ async function upsertTeam(
   ablTeamId: number,
   name: string,
   division: string,
+  logoUrl: string | null,
   shortNameTaken: Set<string>
 ): Promise<string> {
   const ablId = `team:${ablTeamId}`;
@@ -102,14 +103,17 @@ async function upsertTeam(
     .maybeSingle();
 
   if (existing) {
-    await supabase.from("teams").update({ name, division }).eq("id", existing.id);
+    await supabase
+      .from("teams")
+      .update({ name, division, logo_url: logoUrl })
+      .eq("id", existing.id);
     return existing.id;
   }
 
   const shortName = generateShortName(name, shortNameTaken);
   const { data: inserted, error } = await supabase
     .from("teams")
-    .insert({ name, short_name: shortName, division, abl_id: ablId })
+    .insert({ name, short_name: shortName, division, logo_url: logoUrl, abl_id: ablId })
     .select("id")
     .single();
 
@@ -243,6 +247,7 @@ export async function syncAblTournament(
       ablTeam.team.id,
       ablTeam.team.name,
       tournament.name,
+      ablTeam.team.logo?.path ?? null,
       shortNameTaken
     );
     teamIdByAblId.set(ablTeam.team.id, teamId);

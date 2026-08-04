@@ -9,5 +9,6 @@ export type Player = {
     name: string;
     short_name: string;
     division: string | null;
+    logo_url: string | null;
   } | null;
 };

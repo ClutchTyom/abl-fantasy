@@ -7,11 +7,13 @@ import { useUser } from "@/lib/useUser";
 import { supabase } from "@/lib/supabaseClient";
 import { Player } from "@/types/player";
 import PlayerCard from "@/components/fantasy/PlayerCard";
+import TeamLogo from "@/components/ui/TeamLogo";
 
 type Team = {
   id: string;
   name: string;
   short_name: string;
+  logo_url: string | null;
 };
 
 export default function TeamDetailPage() {
@@ -40,7 +42,7 @@ export default function TeamDetailPage() {
 
       const { data: teamData, error: teamError } = await supabase
         .from("teams")
-        .select("id, name, short_name")
+        .select("id, name, short_name, logo_url")
         .eq("id", teamId)
         .single();
 
@@ -54,7 +56,7 @@ export default function TeamDetailPage() {
 
       const { data: playersData, error: playersError } = await supabase
         .from("players")
-        .select("*, teams(name, short_name, division)")
+        .select("*, teams(name, short_name, division, logo_url)")
         .eq("team_id", teamId)
         .order("price", { ascending: false });
 
@@ -94,9 +96,7 @@ export default function TeamDetailPage() {
       </Link>
 
       <div className="mt-4 mb-8 border rounded-xl p-6 bg-white shadow-sm flex items-center gap-4">
-        <div className="w-14 h-14 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0">
-          {team.short_name}
-        </div>
+        <TeamLogo logoUrl={team.logo_url} shortName={team.short_name} size={56} />
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">{team.name}</h1>
           <p className="text-gray-500 text-sm">{players.length} игроков в составе</p>
