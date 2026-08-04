@@ -11,6 +11,7 @@ const LINKS = [
   { href: "/players", label: "Игроки" },
   { href: "/team", label: "Моя команда" },
   { href: "/leaderboard", label: "Рейтинг" },
+  { href: "/rules", label: "Правила" },
 ];
 
 export default function Nav() {

@@ -16,12 +16,20 @@ export default function Home() {
             Стань лучшим Fantasy-менеджером Amateur Basketball League.
           </p>
 
-          <Link
-            href="/team"
-            className="mt-10 inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-lg font-semibold transition"
-          >
-            Начать играть
-          </Link>
+          <div className="mt-10 flex items-center justify-center gap-4 flex-wrap">
+            <Link
+              href="/team"
+              className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-lg font-semibold transition"
+            >
+              Начать играть
+            </Link>
+            <Link
+              href="/rules"
+              className="inline-block text-blue-600 hover:underline px-4 py-4 text-lg font-medium"
+            >
+              Правила игры
+            </Link>
+          </div>
         </section>
 
         {/* Почему играют */}
