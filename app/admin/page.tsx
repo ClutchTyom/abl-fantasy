@@ -297,7 +297,13 @@ const filteredMatches = matches.filter((match) => {
     <main className="max-w-6xl mx-auto p-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-4xl font-bold">Админ-панель</h1>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
+          <Link
+            href="/admin/users"
+            className="bg-gray-900 hover:bg-gray-700 text-white font-semibold px-5 py-2 rounded-lg transition"
+          >
+            Пользователи
+          </Link>
           <Link
             href="/admin/pricing"
             className="bg-gray-900 hover:bg-gray-700 text-white font-semibold px-5 py-2 rounded-lg transition"
