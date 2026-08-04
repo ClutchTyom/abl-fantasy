@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
+import { translateAuthError } from "@/lib/authErrors";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -11,39 +12,66 @@ export default function RegisterPage() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [needsConfirmation, setNeedsConfirmation] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (!agreedToPrivacy) {
+      setError("Нужно согласиться с политикой конфиденциальности");
+      return;
+    }
+
     setIsLoading(true);
 
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        data: {
+          username,
+          privacy_consent_at: new Date().toISOString(),
+        },
+      },
     });
 
     if (signUpError) {
-      setError(signUpError.message);
+      setError(translateAuthError(signUpError.message));
       setIsLoading(false);
       return;
     }
 
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .insert({ id: data.user.id, username });
+    setIsLoading(false);
 
-      if (profileError) {
-        setError(profileError.message);
-        setIsLoading(false);
-        return;
-      }
+    // Профиль создаётся серверным триггером на auth.users, а не отсюда —
+    // так регистрация работает и с включённым подтверждением email (пока
+    // письмо не подтверждено, активной сессии нет, и обычный клиентский
+    // insert в profiles не прошёл бы RLS).
+    if (!data.session) {
+      // Подтверждение email включено — аккаунт создан, но войти пока нельзя.
+      setNeedsConfirmation(true);
+      return;
     }
 
-    setIsLoading(false);
     router.push("/team");
+  }
+
+  if (needsConfirmation) {
+    return (
+      <main className="min-h-[calc(100vh-73px)] bg-gray-50 flex items-center justify-center p-8">
+        <div className="w-full max-w-md bg-white border rounded-2xl shadow-sm p-8 text-center">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-3">Почти готово</h1>
+          <p className="text-gray-600">
+            Мы отправили письмо на <b>{email}</b>. Перейдите по ссылке из
+            письма, чтобы подтвердить регистрацию и войти.
+          </p>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -88,6 +116,23 @@ export default function RegisterPage() {
               className="w-full border rounded-lg px-4 py-2"
             />
           </div>
+
+          <label className="flex items-start gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={agreedToPrivacy}
+              onChange={(e) => setAgreedToPrivacy(e.target.checked)}
+              required
+              className="mt-0.5"
+            />
+            <span>
+              Я согласен(а) с{" "}
+              <Link href="/privacy" target="_blank" className="text-blue-600 hover:underline">
+                политикой конфиденциальности
+              </Link>{" "}
+              и даю согласие на обработку персональных данных
+            </span>
+          </label>
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
