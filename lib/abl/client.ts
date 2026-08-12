@@ -1,7 +1,11 @@
-const BASE_URL = "https://mtgame.ru/api/v1";
-
+// Запрос идёт не напрямую на mtgame.ru, а через наш серверный прокси
+// (app/api/abl/route.ts) — mtgame.ru разрешает браузерные запросы (CORS)
+// только со своих доменов и localhost, с боевого домена на Vercel прямой
+// fetch из браузера падает с "Failed to fetch". Серверный fetch CORS не
+// подчиняется, поэтому браузер обращается к своему же домену, а он уже
+// проксирует запрос дальше.
 export async function ablGet<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`/api/abl?path=${encodeURIComponent(path)}`, {
     headers: { Accept: "application/json" },
   });
 
