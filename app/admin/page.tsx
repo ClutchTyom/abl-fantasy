@@ -44,12 +44,6 @@ export default function AdminPage() {
   const [roundLockAt, setRoundLockAt] = useState("");
   const [roundError, setRoundError] = useState<string | null>(null);
 
-  const [matchRoundId, setMatchRoundId] = useState("");
-  const [matchHomeTeamId, setMatchHomeTeamId] = useState("");
-  const [matchAwayTeamId, setMatchAwayTeamId] = useState("");
-  const [matchStartsAt, setMatchStartsAt] = useState("");
-  const [matchError, setMatchError] = useState<string | null>(null);
-
   const [positionFilter, setPositionFilter] = useState("ALL");
   const [teamFilter, setTeamFilter] = useState("ALL");
   const [matchRoundFilter, setMatchRoundFilter] = useState("ALL");
@@ -170,38 +164,6 @@ export default function AdminPage() {
 
     setRoundName("");
     setRoundLockAt("");
-    loadData();
-  }
-
-  async function handleAddMatch(e: React.FormEvent) {
-    e.preventDefault();
-    setMatchError(null);
-
-    if (!matchRoundId || !matchHomeTeamId || !matchAwayTeamId || !matchStartsAt) {
-      setMatchError("Заполни все поля");
-      return;
-    }
-
-    if (matchHomeTeamId === matchAwayTeamId) {
-      setMatchError("Команды должны быть разными");
-      return;
-    }
-
-    const { error } = await supabase.from("matches").insert({
-      round_id: matchRoundId,
-      home_team_id: matchHomeTeamId,
-      away_team_id: matchAwayTeamId,
-      starts_at: new Date(matchStartsAt).toISOString(),
-    });
-
-    if (error) {
-      setMatchError(error.message);
-      return;
-    }
-
-    setMatchHomeTeamId("");
-    setMatchAwayTeamId("");
-    setMatchStartsAt("");
     loadData();
   }
 
@@ -476,73 +438,7 @@ const filteredMatches = matches.filter((match) => {
         </div>
       )}
 
-      <div className="border rounded-xl p-6 bg-white shadow-sm mb-6 max-w-2xl">
-        <h2 className="text-xl font-bold mb-4">Добавить матч</h2>
-        <form onSubmit={handleAddMatch} className="space-y-3">
-          <select
-            value={matchRoundId}
-            onChange={(e) => setMatchRoundId(e.target.value)}
-            required
-            className="w-full border rounded-lg px-4 py-2"
-          >
-            <option value="">Выбери тур</option>
-            {rounds.map((round) => (
-              <option key={round.id} value={round.id}>
-                {round.name}
-              </option>
-            ))}
-          </select>
-
-          <div className="flex gap-3">
-            <select
-              value={matchHomeTeamId}
-              onChange={(e) => setMatchHomeTeamId(e.target.value)}
-              required
-              className="flex-1 border rounded-lg px-4 py-2"
-            >
-              <option value="">Команда дома</option>
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={matchAwayTeamId}
-              onChange={(e) => setMatchAwayTeamId(e.target.value)}
-              required
-              className="flex-1 border rounded-lg px-4 py-2"
-            >
-              <option value="">Команда в гостях</option>
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <input
-            type="datetime-local"
-            value={matchStartsAt}
-            onChange={(e) => setMatchStartsAt(e.target.value)}
-            required
-            className="w-full border rounded-lg px-4 py-2"
-          />
-
-          {matchError && <p className="text-red-600 text-sm">{matchError}</p>}
-
-          <button
-            type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg transition"
-          >
-            Добавить матч
-          </button>
-        </form>
-      </div>
-
-<h2 className="text-2xl font-bold mb-4">
+      <h2 className="text-2xl font-bold mb-4">
         Все матчи ({filteredMatches.length} из {matches.length})
       </h2>
 
