@@ -25,6 +25,7 @@ export default function PlayersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [nameFilter, setNameFilter] = useState<string>("");
   const [positionFilter, setPositionFilter] = useState<string>("ALL");
   const [divisionFilter, setDivisionFilter] = useState<string>("ALL");
   const [teamFilter, setTeamFilter] = useState<string>("ALL");
@@ -84,6 +85,11 @@ export default function PlayersPage() {
   }
 
   const filteredPlayers = players.filter((player) => {
+    const matchesName =
+      !nameFilter.trim() ||
+      player.full_name
+        .toLocaleLowerCase("ru")
+        .startsWith(nameFilter.trim().toLocaleLowerCase("ru"));
     const matchesPosition =
       positionFilter === "ALL" || player.position === positionFilter;
     const matchesDivision =
@@ -93,6 +99,7 @@ export default function PlayersPage() {
     const matchesMinPrice = !minPriceFilter || player.price >= Number(minPriceFilter);
     const matchesMaxPrice = !maxPriceFilter || player.price <= Number(maxPriceFilter);
     return (
+      matchesName &&
       matchesPosition &&
       matchesDivision &&
       matchesTeam &&
@@ -123,6 +130,17 @@ export default function PlayersPage() {
             {remaining}
           </span>
         </p>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium mb-1">Поиск по ФИО</label>
+        <input
+          type="text"
+          placeholder="Например, Иванов"
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+          className="w-full max-w-md border rounded-lg px-4 py-2"
+        />
       </div>
 
       <div className="mb-8 flex flex-wrap gap-4">
