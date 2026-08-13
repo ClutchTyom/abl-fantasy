@@ -1,586 +1,194 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useProfile } from "@/lib/useProfile";
 import { supabase } from "@/lib/supabaseClient";
-import { fetchAllRows } from "@/lib/fetchAll";
-import { Player } from "@/types/player";
-import PlayerRow from "@/components/admin/PlayerRow";
-import TeamRow from "@/components/admin/TeamRow";
-import RoundRow, { Round } from "@/components/admin/RoundRow";
-import MatchRow, { Match } from "@/components/admin/MatchRow";
+import { getOrCreateCurrentFantasyWeek } from "@/lib/fantasyWeeks";
 
-const POSITIONS = ["PG", "SG", "SF", "PF", "C"] as const;
-
-type Team = {
-  id: string;
-  name: string;
-  short_name: string;
+type StatCard = {
+  label: string;
+  href: string;
+  count: number | null;
 };
 
-export default function AdminPage() {
-  const { profile, isLoading } = useProfile();
-  const router = useRouter();
+type LastSync = {
+  division_label: string;
+  finished_at: string;
+  teams: number;
+  players: number;
+  matches: number;
+  stats: number;
+  warnings: number;
+} | null;
 
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [rounds, setRounds] = useState<Round[]>([]);
-  const [matches, setMatches] = useState<Match[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
+type LastRound = {
+  name: string;
+  lock_at: string;
+} | null;
 
-  const [teamName, setTeamName] = useState("");
-  const [teamShortName, setTeamShortName] = useState("");
-  const [teamError, setTeamError] = useState<string | null>(null);
-
-  const [playerName, setPlayerName] = useState("");
-  const [playerPosition, setPlayerPosition] = useState<string>("PG");
-  const [playerPrice, setPlayerPrice] = useState(8);
-  const [playerTeamId, setPlayerTeamId] = useState("");
-  const [playerError, setPlayerError] = useState<string | null>(null);
-
-  const [roundName, setRoundName] = useState("");
-  const [roundLockAt, setRoundLockAt] = useState("");
-  const [roundError, setRoundError] = useState<string | null>(null);
-
-  const [positionFilter, setPositionFilter] = useState("ALL");
-  const [teamFilter, setTeamFilter] = useState("ALL");
-  const [matchRoundFilter, setMatchRoundFilter] = useState("ALL");
-
-  useEffect(() => {
-    if (!isLoading && (!profile || !profile.is_admin)) {
-      router.push("/");
-    }
-  }, [isLoading, profile, router]);
-
-  async function loadData() {
-    setLoadingData(true);
-
-    const teamsData = await fetchAllRows<Team>((from, to) =>
-      supabase.from("teams").select("id, name, short_name").order("name").range(from, to)
-    );
-
-    const playersData = await fetchAllRows<Player>((from, to) =>
-      supabase
-        .from("players")
-        .select("*, teams(name, short_name, division, logo_url)")
-        .order("full_name")
-        .range(from, to)
-    );
-
-    const roundsData = await fetchAllRows<Round>((from, to) =>
-      supabase.from("rounds").select("id, name, status, lock_at").order("lock_at").range(from, to)
-    );
-
-    const matchesData = await fetchAllRows<Match>((from, to) =>
-      supabase
-        .from("matches")
-        .select(
-          "*, rounds(name), home_team:teams!matches_home_team_id_fkey(name), away_team:teams!matches_away_team_id_fkey(name)"
-        )
-        .order("starts_at")
-        .range(from, to)
-    );
-
-    setTeams(teamsData);
-    setPlayers(playersData);
-    setRounds(roundsData);
-    setMatches(matchesData);
-    setLoadingData(false);
-  }
+export default function AdminDashboardPage() {
+  const [stats, setStats] = useState<StatCard[]>([
+    { label: "Команды", href: "/admin/teams", count: null },
+    { label: "Игроки", href: "/admin/players", count: null },
+    { label: "Матчи", href: "/admin/matches", count: null },
+    { label: "Статистика", href: "/admin/matches", count: null },
+    { label: "Пользователи", href: "/admin/users", count: null },
+  ]);
+  const [lastSync, setLastSync] = useState<LastSync>(null);
+  const [lastRound, setLastRound] = useState<LastRound>(null);
+  const [nextLock, setNextLock] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (profile?.is_admin) {
-      queueMicrotask(() => {
-        loadData();
-      });
-    }
-  }, [profile]);
+    let cancelled = false;
 
-  async function handleAddTeam(e: React.FormEvent) {
-    e.preventDefault();
-    setTeamError(null);
+    async function load() {
+      const [
+        teamsCount,
+        playersCount,
+        matchesCount,
+        statsCount,
+        usersCount,
+        syncData,
+        roundData,
+        fantasyWeek,
+      ] = await Promise.all([
+        supabase.from("teams").select("id", { count: "exact", head: true }),
+        supabase.from("players").select("id", { count: "exact", head: true }),
+        supabase.from("matches").select("id", { count: "exact", head: true }),
+        supabase
+          .from("player_match_stats")
+          .select("match_id", { count: "exact", head: true }),
+        supabase.from("profiles").select("id", { count: "exact", head: true }),
+        supabase
+          .from("sync_runs")
+          .select("division_label, finished_at, teams, players, matches, stats, warnings")
+          .order("finished_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("rounds")
+          .select("name, lock_at")
+          .order("lock_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        getOrCreateCurrentFantasyWeek().catch(() => null),
+      ]);
 
-    const { error } = await supabase
-      .from("teams")
-      .insert({ name: teamName, short_name: teamShortName });
+      if (cancelled) return;
 
-    if (error) {
-      setTeamError(error.message);
-      return;
-    }
-
-    setTeamName("");
-    setTeamShortName("");
-    loadData();
-  }
-
-  async function handleAddPlayer(e: React.FormEvent) {
-    e.preventDefault();
-    setPlayerError(null);
-
-    if (!playerTeamId) {
-      setPlayerError("Выбери команду");
-      return;
-    }
-
-    const { error } = await supabase.from("players").insert({
-      full_name: playerName,
-      position: playerPosition,
-      price: playerPrice,
-      team_id: playerTeamId,
-    });
-
-    if (error) {
-      setPlayerError(error.message);
-      return;
-    }
-
-    setPlayerName("");
-    setPlayerPrice(8);
-    loadData();
-  }
-
-  async function handleAddRound(e: React.FormEvent) {
-    e.preventDefault();
-    setRoundError(null);
-
-    if (!roundLockAt) {
-      setRoundError("Укажи дату и время блокировки состава");
-      return;
+      setStats([
+        { label: "Команды", href: "/admin/teams", count: teamsCount.count ?? 0 },
+        { label: "Игроки", href: "/admin/players", count: playersCount.count ?? 0 },
+        { label: "Матчи", href: "/admin/matches", count: matchesCount.count ?? 0 },
+        { label: "Статистика", href: "/admin/matches", count: statsCount.count ?? 0 },
+        { label: "Пользователи", href: "/admin/users", count: usersCount.count ?? 0 },
+      ]);
+      setLastSync(syncData.data ?? null);
+      setLastRound(roundData.data ?? null);
+      setNextLock(fantasyWeek?.starts_at ?? null);
+      setIsLoading(false);
     }
 
-    const { error } = await supabase.from("rounds").insert({
-      name: roundName,
-      status: "upcoming",
-      lock_at: new Date(roundLockAt).toISOString(),
-    });
+    load();
 
-    if (error) {
-      setRoundError(error.message);
-      return;
-    }
-
-    setRoundName("");
-    setRoundLockAt("");
-    loadData();
-  }
-
-  function handleMatchSaved(matchId: string, status: string, startsAt: string) {
-    setMatches((current) =>
-      current.map((m) =>
-        m.id === matchId ? { ...m, status, starts_at: startsAt } : m
-      )
-    );
-  }
-
-  function handleMatchDeleted(matchId: string) {
-    setMatches((current) => current.filter((m) => m.id !== matchId));
-  }
-
-  function handlePlayerSaved(playerId: string, position: string, price: number) {
-    setPlayers((current) =>
-      current.map((p) =>
-        p.id === playerId
-          ? { ...p, position: position as Player["position"], price }
-          : p
-      )
-    );
-  }
-
-  function handlePlayerDeleted(playerId: string) {
-    setPlayers((current) => current.filter((p) => p.id !== playerId));
-  }
-
-  function handleTeamSaved(teamId: string, name: string, shortName: string) {
-    setTeams((current) =>
-      current.map((t) =>
-        t.id === teamId ? { ...t, name, short_name: shortName } : t
-      )
-    );
-    setPlayers((current) =>
-      current.map((p) =>
-        p.team_id === teamId
-          ? {
-              ...p,
-              teams: {
-                name,
-                short_name: shortName,
-                division: p.teams?.division ?? null,
-                logo_url: p.teams?.logo_url ?? null,
-              },
-            }
-          : p
-      )
-    );
-  }
-
-  function handleTeamDeleted(teamId: string) {
-    setTeams((current) => current.filter((t) => t.id !== teamId));
-  }
-
-  function handleRoundSaved(
-    roundId: string,
-    name: string,
-    status: string,
-    lockAt: string
-  ) {
-    setRounds((current) =>
-      current.map((r) =>
-        r.id === roundId ? { ...r, name, status, lock_at: lockAt } : r
-      )
-    );
-  }
-
-  function handleRoundDeleted(roundId: string) {
-    setRounds((current) => current.filter((r) => r.id !== roundId));
-  }
-const filteredMatches = matches.filter((match) => {
-    return matchRoundFilter === "ALL" || match.round_id === matchRoundFilter;
-  });
-  const filteredPlayers = players.filter((player) => {
-    const matchesPosition =
-      positionFilter === "ALL" || player.position === positionFilter;
-    const matchesTeam =
-      teamFilter === "ALL" || player.team_id === teamFilter;
-    return matchesPosition && matchesTeam;
-  });
-
-  if (isLoading) {
-    return <p className="p-8">Загрузка...</p>;
-  }
-
-  if (!profile || !profile.is_admin) {
-    return null;
-  }
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
-    <main className="max-w-6xl mx-auto p-8">
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-4xl font-bold">Админ-панель</h1>
-        <div className="flex gap-3 flex-wrap">
+    <div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-10">
+        {stats.map((stat) => (
           <Link
-            href="/admin/users"
-            className="bg-gray-900 hover:bg-gray-700 text-white font-semibold px-5 py-2 rounded-lg transition"
+            key={stat.label}
+            href={stat.href}
+            className="border rounded-xl p-5 bg-white shadow-sm hover:shadow-md transition"
           >
-            Пользователи
+            <p className="text-gray-500 text-sm">{stat.label}</p>
+            <p className="text-3xl font-bold">
+              {stat.count === null ? "—" : stat.count.toLocaleString("ru-RU")}
+            </p>
           </Link>
-          <Link
-            href="/admin/pricing"
-            className="bg-gray-900 hover:bg-gray-700 text-white font-semibold px-5 py-2 rounded-lg transition"
-          >
-            Пересчёт цен
-          </Link>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="border rounded-xl p-6 bg-white shadow-sm">
+          <h2 className="text-sm font-medium text-gray-500 mb-2">
+            Последняя синхронизация
+          </h2>
+          {isLoading ? (
+            <p className="text-gray-400">Загрузка...</p>
+          ) : lastSync ? (
+            <>
+              <p className="font-semibold">{lastSync.division_label}</p>
+              <p className="text-gray-500 text-sm mt-1">
+                {new Date(lastSync.finished_at).toLocaleString("ru-RU")}
+              </p>
+              <p className="text-gray-500 text-sm mt-1">
+                команды {lastSync.teams} · игроки {lastSync.players} · матчи{" "}
+                {lastSync.matches} · статистика {lastSync.stats}
+                {lastSync.warnings > 0 && (
+                  <span className="text-amber-600">
+                    {" "}
+                    · предупреждений {lastSync.warnings}
+                  </span>
+                )}
+              </p>
+            </>
+          ) : (
+            <p className="text-gray-400">Синхронизация ещё не запускалась</p>
+          )}
           <Link
             href="/admin/import"
-            className="bg-gray-900 hover:bg-gray-700 text-white font-semibold px-5 py-2 rounded-lg transition"
+            className="inline-block mt-3 text-blue-600 hover:underline text-sm"
           >
-            Импорт из ABL
+            Синхронизировать →
           </Link>
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div className="border rounded-xl p-6 bg-white shadow-sm">
-          <h2 className="text-xl font-bold mb-4">Добавить команду</h2>
-          <form onSubmit={handleAddTeam} className="space-y-3">
-            <input
-              type="text"
-              placeholder="Название команды"
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              required
-              className="w-full border rounded-lg px-4 py-2"
-            />
-            <input
-              type="text"
-              placeholder="Короткое имя (уникальное)"
-              value={teamShortName}
-              onChange={(e) => setTeamShortName(e.target.value)}
-              required
-              className="w-full border rounded-lg px-4 py-2"
-            />
-            {teamError && <p className="text-red-600 text-sm">{teamError}</p>}
-            <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg transition"
-            >
-              Добавить команду
-            </button>
-          </form>
-        </div>
 
         <div className="border rounded-xl p-6 bg-white shadow-sm">
-          <h2 className="text-xl font-bold mb-4">Добавить игрока</h2>
-          <form onSubmit={handleAddPlayer} className="space-y-3">
-            <input
-              type="text"
-              placeholder="Имя игрока"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              required
-              className="w-full border rounded-lg px-4 py-2"
-            />
-
-            <select
-              value={playerTeamId}
-              onChange={(e) => setPlayerTeamId(e.target.value)}
-              required
-              className="w-full border rounded-lg px-4 py-2"
-            >
-              <option value="">Выбери команду</option>
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </select>
-
-            <div className="flex gap-3">
-              <select
-                value={playerPosition}
-                onChange={(e) => setPlayerPosition(e.target.value)}
-                className="flex-1 border rounded-lg px-4 py-2"
-              >
-                {POSITIONS.map((pos) => (
-                  <option key={pos} value={pos}>
-                    {pos}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                type="number"
-                min={8}
-                max={17}
-                value={playerPrice}
-                onChange={(e) => setPlayerPrice(Number(e.target.value))}
-                className="w-24 border rounded-lg px-4 py-2"
-              />
-            </div>
-
-            {playerError && (
-              <p className="text-red-600 text-sm">{playerError}</p>
-            )}
-
-            <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg transition"
-            >
-              Добавить игрока
-            </button>
-          </form>
-        </div>
-
-        <div className="border rounded-xl p-6 bg-white shadow-sm">
-          <h2 className="text-xl font-bold mb-4">Добавить тур</h2>
-          <form onSubmit={handleAddRound} className="space-y-3">
-            <input
-              type="text"
-              placeholder="Название тура (напр. Тур 2)"
-              value={roundName}
-              onChange={(e) => setRoundName(e.target.value)}
-              required
-              className="w-full border rounded-lg px-4 py-2"
-            />
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Блокировка состава (дата и время)
-              </label>
-              <input
-                type="datetime-local"
-                value={roundLockAt}
-                onChange={(e) => setRoundLockAt(e.target.value)}
-                required
-                className="w-full border rounded-lg px-4 py-2"
-              />
-            </div>
-            {roundError && (
-              <p className="text-red-600 text-sm">{roundError}</p>
-            )}
-            <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg transition"
-            >
-              Добавить тур
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <h2 className="text-2xl font-bold mb-4">Все туры ({rounds.length})</h2>
-
-      {loadingData ? (
-        <p>Загрузка...</p>
-      ) : (
-        <div className="overflow-x-auto border rounded-xl bg-white shadow-sm mb-10">
-          <table className="w-full text-left">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="p-3">Название</th>
-                <th className="p-3">Статус</th>
-                <th className="p-3">Блокировка</th>
-                <th className="p-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rounds.map((round) => (
-                <RoundRow
-                  key={round.id}
-                  round={round}
-                  onSaved={handleRoundSaved}
-                  onDeleted={handleRoundDeleted}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <h2 className="text-2xl font-bold mb-4">
-        Все матчи ({filteredMatches.length} из {matches.length})
-      </h2>
-
-      <div className="mb-6">
-        <label className="block text-sm font-medium mb-1">Тур</label>
-        <select
-          value={matchRoundFilter}
-          onChange={(e) => setMatchRoundFilter(e.target.value)}
-          className="border rounded-lg px-4 py-2"
-        >
-          <option value="ALL">Все туры</option>
-          {rounds.map((round) => (
-            <option key={round.id} value={round.id}>
-              {round.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {loadingData ? (
-        <p>Загрузка...</p>
-      ) : (
-        <div className="overflow-x-auto border rounded-xl bg-white shadow-sm mb-10">
-          <table className="w-full text-left">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="p-3">Тур</th>
-                <th className="p-3">Матч</th>
-                <th className="p-3">Дата</th>
-                <th className="p-3">Статус</th>
-                <th className="p-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredMatches.map((match) => (
-                <MatchRow
-                  key={match.id}
-                  match={match}
-                  onSaved={handleMatchSaved}
-                  onDeleted={handleMatchDeleted}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <h2 className="text-2xl font-bold mb-4">
-        Все команды ({teams.length})
-      </h2>
-
-      {loadingData ? (
-        <p>Загрузка...</p>
-      ) : (
-        <div className="overflow-x-auto border rounded-xl bg-white shadow-sm mb-10">
-          <table className="w-full text-left">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="p-3">Название</th>
-                <th className="p-3">Короткое имя</th>
-                <th className="p-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {teams.map((team) => (
-                <TeamRow
-                  key={team.id}
-                  team={team}
-                  onSaved={handleTeamSaved}
-                  onDeleted={handleTeamDeleted}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      <h2 className="text-2xl font-bold mb-4">
-        Все игроки ({filteredPlayers.length} из {players.length})
-      </h2>
-
-      <div className="mb-6 flex flex-wrap gap-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Позиция</label>
-          <select
-            value={positionFilter}
-            onChange={(e) => setPositionFilter(e.target.value)}
-            className="border rounded-lg px-4 py-2"
+          <h2 className="text-sm font-medium text-gray-500 mb-2">Последний тур</h2>
+          {isLoading ? (
+            <p className="text-gray-400">Загрузка...</p>
+          ) : lastRound ? (
+            <>
+              <p className="font-semibold">{lastRound.name}</p>
+              <p className="text-gray-500 text-sm mt-1">
+                блокировка {new Date(lastRound.lock_at).toLocaleString("ru-RU")}
+              </p>
+            </>
+          ) : (
+            <p className="text-gray-400">Туров ещё нет</p>
+          )}
+          <Link
+            href="/admin/rounds"
+            className="inline-block mt-3 text-blue-600 hover:underline text-sm"
           >
-            <option value="ALL">Все позиции</option>
-            {POSITIONS.map((pos) => (
-              <option key={pos} value={pos}>
-                {pos}
-              </option>
-            ))}
-          </select>
+            Все туры →
+          </Link>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Команда</label>
-          <select
-            value={teamFilter}
-            onChange={(e) => setTeamFilter(e.target.value)}
-            className="border rounded-lg px-4 py-2"
-          >
-            <option value="ALL">Все команды</option>
-            {teams.map((team) => (
-              <option key={team.id} value={team.id}>
-                {team.name}
-              </option>
-            ))}
-          </select>
+        <div className="border rounded-xl p-6 bg-white shadow-sm">
+          <h2 className="text-sm font-medium text-gray-500 mb-2">
+            Следующий lock состава
+          </h2>
+          {isLoading ? (
+            <p className="text-gray-400">Загрузка...</p>
+          ) : nextLock ? (
+            <p className="font-semibold">
+              {new Date(nextLock).toLocaleString("ru-RU")}
+            </p>
+          ) : (
+            <p className="text-gray-400">Не удалось определить</p>
+          )}
+          <p className="text-gray-500 text-sm mt-1">
+            Общий фэнтези-тур для всех дивизионов (суббота 09:00 МСК)
+          </p>
         </div>
       </div>
-
-      {loadingData ? (
-        <p>Загрузка...</p>
-      ) : (
-        <div className="overflow-x-auto border rounded-xl bg-white shadow-sm">
-          <table className="w-full text-left">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="p-3">Имя</th>
-                <th className="p-3">Команда</th>
-                <th className="p-3">Позиция</th>
-                <th className="p-3">Цена</th>
-                <th className="p-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredPlayers.map((player) => (
-                <PlayerRow
-                  key={player.id}
-                  player={player}
-                  onSaved={handlePlayerSaved}
-                  onDeleted={handlePlayerDeleted}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </main>
+    </div>
   );
 }

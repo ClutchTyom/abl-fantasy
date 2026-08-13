@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
-import { ablGet } from "@/lib/abl/client";
+import { ablGet, ABL_DIVISIONS } from "@/lib/abl/client";
 import {
   AblGame,
   AblGameUser,
@@ -403,6 +403,21 @@ export async function syncAblTournament(
   const statsCount = upsertedStats.length;
 
   log("Готово.");
+
+  const { error: syncLogError } = await supabase.from("sync_runs").insert({
+    division_alias: alias,
+    division_label: ABL_DIVISIONS.find((d) => d.alias === alias)?.label ?? alias,
+    teams: teamsCount,
+    players: playersCount,
+    rounds: roundsCount,
+    matches: matchesCount,
+    stats: statsCount,
+    warnings: warnings.length,
+  });
+
+  if (syncLogError) {
+    warnings.push(`Не удалось записать лог синхронизации: ${syncLogError.message}`);
+  }
 
   return {
     teams: teamsCount,

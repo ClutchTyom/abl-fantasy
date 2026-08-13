@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useProfile } from "@/lib/useProfile";
 import { supabase } from "@/lib/supabaseClient";
 import PlayerStatsRow from "@/components/admin/PlayerStatsRow";
 import { PlayerMatchStats, StatLine } from "@/types/playerMatchStats";
@@ -40,8 +39,6 @@ const STAT_HEADERS = [
 ];
 
 export default function AdminMatchStatsPage() {
-  const { profile, isLoading } = useProfile();
-  const router = useRouter();
   const params = useParams<{ id: string }>();
   const matchId = params.id;
 
@@ -53,13 +50,7 @@ export default function AdminMatchStatsPage() {
   const [loadingData, setLoadingData] = useState(true);
 
   useEffect(() => {
-    if (!isLoading && (!profile || !profile.is_admin)) {
-      router.push("/");
-    }
-  }, [isLoading, profile, router]);
-
-  useEffect(() => {
-    if (!profile?.is_admin || !matchId) return;
+    if (!matchId) return;
 
     async function loadData() {
       setLoadingData(true);
@@ -114,18 +105,14 @@ export default function AdminMatchStatsPage() {
     }
 
     loadData();
-  }, [profile, matchId]);
+  }, [matchId]);
 
-  if (isLoading || loadingData) {
-    return <p className="p-8">Загрузка...</p>;
-  }
-
-  if (!profile || !profile.is_admin) {
-    return null;
+  if (loadingData) {
+    return <p>Загрузка...</p>;
   }
 
   if (!match) {
-    return <p className="p-8">Матч не найден</p>;
+    return <p>Матч не найден</p>;
   }
 
   const homePlayers = players.filter((p) => p.team_id === match.home_team_id);
@@ -174,12 +161,12 @@ export default function AdminMatchStatsPage() {
   }
 
   return (
-    <main className="max-w-6xl mx-auto p-8">
-      <Link href="/admin" className="text-blue-600 hover:underline text-sm">
-        ← Назад в админ-панель
+    <div>
+      <Link href="/admin/matches" className="text-blue-600 hover:underline text-sm">
+        ← Назад к списку матчей
       </Link>
 
-      <h1 className="text-3xl font-bold mt-3 mb-1">
+      <h1 className="text-2xl font-bold mt-3 mb-1">
         {match.home_team?.name ?? "—"} vs {match.away_team?.name ?? "—"}
       </h1>
       <p className="text-gray-500 mb-8">
@@ -189,6 +176,6 @@ export default function AdminMatchStatsPage() {
 
       {renderTable(homePlayers, match.home_team?.name ?? "Хозяева")}
       {renderTable(awayPlayers, match.away_team?.name ?? "Гости")}
-    </main>
+    </div>
   );
 }

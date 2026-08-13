@@ -1,9 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { useProfile } from "@/lib/useProfile";
 import { useUser } from "@/lib/useUser";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -16,20 +13,12 @@ type AdminUser = {
 };
 
 export default function AdminUsersPage() {
-  const { profile, isLoading } = useProfile();
   const { user } = useUser();
-  const router = useRouter();
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!isLoading && (!profile || !profile.is_admin)) {
-      router.push("/");
-    }
-  }, [isLoading, profile, router]);
 
   async function loadUsers() {
     setLoadingUsers(true);
@@ -47,12 +36,10 @@ export default function AdminUsersPage() {
   }
 
   useEffect(() => {
-    if (profile?.is_admin) {
-      queueMicrotask(() => {
-        loadUsers();
-      });
-    }
-  }, [profile]);
+    queueMicrotask(() => {
+      loadUsers();
+    });
+  }, []);
 
   async function handleToggleAdmin(target: AdminUser) {
     const nextIsAdmin = !target.is_admin;
@@ -83,21 +70,9 @@ export default function AdminUsersPage() {
     );
   }
 
-  if (isLoading) {
-    return <p className="p-8">Загрузка...</p>;
-  }
-
-  if (!profile || !profile.is_admin) {
-    return null;
-  }
-
   return (
-    <main className="max-w-4xl mx-auto p-4 sm:p-8">
-      <Link href="/admin" className="text-blue-600 hover:underline text-sm">
-        ← Назад в админ-панель
-      </Link>
-
-      <h1 className="text-3xl font-bold mt-3 mb-1">Пользователи</h1>
+    <div className="max-w-4xl">
+      <h1 className="text-2xl font-bold mb-1">Пользователи</h1>
       <p className="text-gray-500 mb-8">
         Здесь можно выдать или забрать права администратора.
       </p>
@@ -159,6 +134,6 @@ export default function AdminUsersPage() {
           </table>
         </div>
       )}
-    </main>
+    </div>
   );
 }

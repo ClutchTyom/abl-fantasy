@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { useProfile } from "@/lib/useProfile";
+import { useState } from "react";
 import {
   recalculatePlayerPrices,
   PriceRecalcSummary,
@@ -11,18 +8,9 @@ import {
 } from "@/lib/pricing";
 
 export default function AdminPricingPage() {
-  const { profile, isLoading } = useProfile();
-  const router = useRouter();
-
   const [isRunning, setIsRunning] = useState(false);
   const [summary, setSummary] = useState<PriceRecalcSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!isLoading && (!profile || !profile.is_admin)) {
-      router.push("/");
-    }
-  }, [isLoading, profile, router]);
 
   async function handleRecalculate() {
     setIsRunning(true);
@@ -39,21 +27,9 @@ export default function AdminPricingPage() {
     }
   }
 
-  if (isLoading) {
-    return <p className="p-8">Загрузка...</p>;
-  }
-
-  if (!profile || !profile.is_admin) {
-    return null;
-  }
-
   return (
-    <main className="max-w-3xl mx-auto p-8">
-      <Link href="/admin" className="text-blue-600 hover:underline text-sm">
-        ← Назад в админ-панель
-      </Link>
-
-      <h1 className="text-3xl font-bold mt-3 mb-1">Пересчёт цен игроков</h1>
+    <div className="max-w-3xl">
+      <h1 className="text-2xl font-bold mb-1">Пересчёт цен игроков</h1>
       <p className="text-gray-500 mb-8">
         Цена (8–17) считается по средним фэнтези-очкам за игру: сильнейшие
         игроки получают максимум, а игроки без статистики или сыгравшие
@@ -105,6 +81,6 @@ export default function AdminPricingPage() {
           </ul>
         </div>
       )}
-    </main>
+    </div>
   );
 }

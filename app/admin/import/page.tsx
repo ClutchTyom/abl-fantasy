@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { useProfile } from "@/lib/useProfile";
+import { useState } from "react";
 import { ABL_DIVISIONS } from "@/lib/abl/client";
 import { syncAblTournament, SyncSummary } from "@/lib/abl/sync";
 
@@ -15,9 +12,6 @@ type DivisionResult = {
 };
 
 export default function AdminImportPage() {
-  const { profile, isLoading } = useProfile();
-  const router = useRouter();
-
   const [alias, setAlias] = useState<string>(ABL_DIVISIONS[0].alias);
   const [isSyncing, setIsSyncing] = useState(false);
   const [log, setLog] = useState<string[]>([]);
@@ -27,12 +21,6 @@ export default function AdminImportPage() {
   const [isBulkSyncing, setIsBulkSyncing] = useState(false);
   const [bulkLog, setBulkLog] = useState<string[]>([]);
   const [bulkResults, setBulkResults] = useState<DivisionResult[]>([]);
-
-  useEffect(() => {
-    if (!isLoading && (!profile || !profile.is_admin)) {
-      router.push("/");
-    }
-  }, [isLoading, profile, router]);
 
   async function handleSync() {
     setIsSyncing(true);
@@ -81,21 +69,9 @@ export default function AdminImportPage() {
     setIsBulkSyncing(false);
   }
 
-  if (isLoading) {
-    return <p className="p-8">Загрузка...</p>;
-  }
-
-  if (!profile || !profile.is_admin) {
-    return null;
-  }
-
   return (
-    <main className="max-w-3xl mx-auto p-8">
-      <Link href="/admin" className="text-blue-600 hover:underline text-sm">
-        ← Назад в админ-панель
-      </Link>
-
-      <h1 className="text-3xl font-bold mt-3 mb-1">Импорт из ABL</h1>
+    <div className="max-w-3xl">
+      <h1 className="text-2xl font-bold mb-1">Импорт из ABL</h1>
       <p className="text-gray-500 mb-8">
         Подтягивает команды, составы, календарь и статистику сыгранных матчей
         с ablforpeople.com. Повторный запуск обновляет уже созданные записи
@@ -255,6 +231,6 @@ export default function AdminImportPage() {
           </table>
         </div>
       )}
-    </main>
+    </div>
   );
 }
