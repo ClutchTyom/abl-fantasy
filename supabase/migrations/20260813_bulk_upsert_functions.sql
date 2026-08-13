@@ -10,6 +10,12 @@
 -- security invoker (по умолчанию, без security definer) — функции
 -- выполняются с правами вызывающего, так что действующие RLS-политики на
 -- teams/players продолжают решать, кому можно писать, как и раньше.
+--
+-- ON CONFLICT указан по имени constraint, а не списком колонок (abl_id):
+-- RETURNS TABLE(id, abl_id) объявляет id/abl_id внутренними переменными
+-- функции, и голое имя "abl_id" в "on conflict (abl_id)" становится
+-- неоднозначным — Postgres не понимает, колонка это или переменная.
+-- Ссылка на constraint по имени эту неоднозначность обходит.
 
 create or replace function public.bulk_upsert_teams(rows jsonb)
 returns table(id uuid, abl_id text)
@@ -25,7 +31,7 @@ begin
     r->>'logo_url',
     r->>'abl_id'
   from jsonb_array_elements(rows) as r
-  on conflict (abl_id) do update set
+  on conflict on constraint teams_abl_id_key do update set
     name = excluded.name,
     division = excluded.division,
     logo_url = excluded.logo_url
@@ -48,7 +54,7 @@ begin
     r->>'photo_url',
     r->>'abl_id'
   from jsonb_array_elements(rows) as r
-  on conflict (abl_id) do update set
+  on conflict on constraint players_abl_id_key do update set
     full_name = excluded.full_name,
     position = excluded.position,
     team_id = excluded.team_id,
