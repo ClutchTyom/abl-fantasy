@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { Player } from "@/types/player";
 import PlayerCard from "@/components/fantasy/PlayerCard";
 import TeamLogo from "@/components/ui/TeamLogo";
+import { fetchSeasonStatsByPlayer, SeasonStats } from "@/lib/seasonStats";
 
 type Team = {
   id: string;
@@ -24,6 +25,9 @@ export default function TeamDetailPage() {
 
   const [team, setTeam] = useState<Team | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [seasonStatsByPlayer, setSeasonStatsByPlayer] = useState<
+    Map<string, SeasonStats>
+  >(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,6 +71,10 @@ export default function TeamDetailPage() {
       }
 
       setPlayers(playersData ?? []);
+
+      const seasonStats = await fetchSeasonStatsByPlayer();
+      setSeasonStatsByPlayer(seasonStats);
+
       setIsLoading(false);
     }
 
@@ -106,7 +114,11 @@ export default function TeamDetailPage() {
       <h2 className="text-xl font-bold mb-4">Состав</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {players.map((player) => (
-          <PlayerCard key={player.id} player={player} />
+          <PlayerCard
+            key={player.id}
+            player={player}
+            seasonStats={seasonStatsByPlayer.get(player.id)}
+          />
         ))}
       </div>
     </main>

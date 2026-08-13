@@ -2,17 +2,18 @@ import Image from "next/image";
 import Link from "next/link";
 import { Player } from "@/types/player";
 import Badge, { BadgeColor } from "@/components/ui/Badge";
-import AddPlayerButton from "@/components/fantasy/AddPlayerButton";
 import RemovePlayerButton from "@/components/fantasy/RemovePlayerButton";
 import CaptainButton from "@/components/fantasy/CaptainButton";
 import Card from "@/components/ui/Card";
 import TeamLogo from "@/components/ui/TeamLogo";
 import { useFantasy } from "@/context/FantasyContext";
+import { SeasonStats } from "@/lib/seasonStats";
 
 type PlayerCardProps = {
   player: Player;
   variant?: "list" | "team";
   onReplaceClick?: () => void;
+  seasonStats?: SeasonStats;
 };
 
 export const POSITION_COLORS: Record<Player["position"], BadgeColor> = {
@@ -56,6 +57,7 @@ export default function PlayerCard({
   player,
   variant = "list",
   onReplaceClick,
+  seasonStats,
 }: PlayerCardProps) {
   const { captainId, isLocked } = useFantasy();
   const isCaptain = variant === "team" && captainId === player.id;
@@ -119,8 +121,25 @@ export default function PlayerCard({
             )}
             <RemovePlayerButton player={player} />
           </>
+        ) : seasonStats && seasonStats.games > 0 ? (
+          <div className="grid grid-cols-3 gap-2 w-full text-center">
+            <div>
+              <p className="text-gray-400 text-xs">Матчи</p>
+              <p className="font-bold">{seasonStats.games}</p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs">Очки/игру</p>
+              <p className="font-bold">{seasonStats.avgPoints.toFixed(1)}</p>
+            </div>
+            <div>
+              <p className="text-gray-400 text-xs">FP/игру</p>
+              <p className="font-bold text-blue-600">
+                {seasonStats.avgFantasyPoints.toFixed(1)}
+              </p>
+            </div>
+          </div>
         ) : (
-          <AddPlayerButton player={player} />
+          <p className="text-gray-400 text-sm">Нет статистики за сезон</p>
         )}
       </div>
     </Card>

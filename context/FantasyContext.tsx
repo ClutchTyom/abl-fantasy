@@ -81,7 +81,6 @@ async function buildSquadFromRoster(squadId: string): Promise<Squad> {
 
 type FantasyContextType = {
   squad: Squad;
-  addPlayer: (player: Player) => void;
   addPlayerToSlot: (player: Player, slot: Slot) => void;
   removePlayer: (playerId: string) => void;
   budget: number;
@@ -298,48 +297,6 @@ export function FantasyProvider({
     };
   }, [userId, userLoading]);
 
-  function addPlayer(player: Player) {
-    setSquad((current) => {
-      const alreadyIn = ALL_SLOTS.some(
-        (slot) => current[slot]?.id === player.id
-      );
-      if (alreadyIn) return current;
-
-      const currentSpent = ALL_SLOTS.reduce((total, slot) => {
-        return total + (current[slot]?.price ?? 0);
-      }, 0);
-
-      if (currentSpent + player.price > budget) {
-        alert("Недостаточно бюджета");
-        return current;
-      }
-
-      const sameTeamCount = ALL_SLOTS.filter(
-        (slot) => current[slot]?.team_id === player.team_id
-      ).length;
-
-      if (sameTeamCount >= 2) {
-        alert("Максимум 2 игрока из одной команды");
-        return current;
-      }
-
-      const positionSlot = player.position as Slot;
-      if (!current[positionSlot]) {
-        return { ...current, [positionSlot]: player };
-      }
-
-      const freeBench = BENCH_SLOTS.find((slot) => !current[slot]);
-      if (freeBench) {
-        return { ...current, [freeBench]: player };
-      }
-
-      alert(
-        `Нет свободного места: позиция ${player.position} занята и все запасные слоты заполнены`
-      );
-      return current;
-    });
-  }
-
   // Точечное добавление/замена в КОНКРЕТНЫЙ слот (для пикера в /team —
   // клик по позиции). В отличие от addPlayer(), сам не выбирает слот, а
   // проверяет бюджет/лимит "2 из одной команды" без учёта игрока, который
@@ -517,7 +474,6 @@ export function FantasyProvider({
     <FantasyContext.Provider
       value={{
         squad,
-        addPlayer,
         addPlayerToSlot,
         removePlayer,
         budget,

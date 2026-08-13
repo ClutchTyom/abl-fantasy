@@ -10,6 +10,7 @@ import { Player } from "@/types/player";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/lib/useUser";
 import { MIN_PRICE, MAX_PRICE } from "@/lib/pricing";
+import { fetchSeasonStatsByPlayer, SeasonStats } from "@/lib/seasonStats";
 
 const POSITIONS = ["PG", "SG", "SF", "PF", "C"] as const;
 
@@ -18,6 +19,9 @@ export default function PlayersPage() {
   const router = useRouter();
   const { spent, remaining, isSquadLoading } = useFantasy();
   const [players, setPlayers] = useState<Player[]>([]);
+  const [seasonStatsByPlayer, setSeasonStatsByPlayer] = useState<
+    Map<string, SeasonStats>
+  >(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,6 +48,9 @@ export default function PlayersPage() {
             .range(from, to)
         );
         setPlayers(data);
+
+        const seasonStats = await fetchSeasonStatsByPlayer();
+        setSeasonStatsByPlayer(seasonStats);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Не удалось загрузить игроков");
       }
@@ -201,7 +208,11 @@ export default function PlayersPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredPlayers.map((player) => (
-          <PlayerCard key={player.id} player={player} />
+          <PlayerCard
+            key={player.id}
+            player={player}
+            seasonStats={seasonStatsByPlayer.get(player.id)}
+          />
         ))}
       </div>
     </main>
