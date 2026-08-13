@@ -284,7 +284,14 @@ export async function syncAblTournament(
     const lockAt = groupGames.map((g) => g.datetime!).sort()[0];
     const status = computeRoundStatus(groupGames.map((g) => mapMatchStatus(g.status)));
 
-    return { abl_id: `${tournament.id}:${key}`, name, status, lock_at: lockAt };
+    return {
+      abl_id: `${tournament.id}:${key}`,
+      // Название дивизиона впереди — иначе в админке при 13 дивизионах
+      // "Тур 1" от каждого не отличить друг от друга.
+      name: `${tournament.name} — ${name}`,
+      status,
+      lock_at: lockAt,
+    };
   });
 
   const upsertedRounds = await bulkUpsertTable("rounds", roundRows, "abl_id");
