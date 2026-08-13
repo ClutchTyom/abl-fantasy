@@ -13,6 +13,15 @@ import { Player } from "@/types/player";
 const ABL_LEAGUE_ID = 2;
 const BASE_PRICE = 8;
 
+// Сколько запросов к ABL держим в полёте одновременно при загрузке
+// составов команд / статистики матчей — это единственная часть синка,
+// которую нельзя "объединить" в один запрос (у ABL нет bulk-эндпоинтов),
+// поэтому хотя бы распараллеливаем в разумных пределах, не долбя их
+// сервер полностью без ограничений.
+const ABL_FETCH_CONCURRENCY = 6;
+// Сколько строк уходит в одном bulk-запросе к нашей БД.
+const DB_CHUNK_SIZE = 500;
+
 const POSITION_MAP: Record<string, Player["position"]> = {
   point_guard: "PG",
   shooting_guard: "SG",
@@ -78,6 +87,80 @@ function generateShortName(name: string, taken: Set<string>): string {
   return candidate;
 }
 
+// Параллельно выполняет asyncFn для каждого элемента items, но не больше
+// concurrency штук одновременно — компромисс между "всё по очереди"
+// (медленно) и "всё разом" (можем захлебнуть сторонний сервер).
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  asyncFn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (true) {
+      const current = nextIndex++;
+      if (current >= items.length) return;
+      results[current] = await asyncFn(items[current], current);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => worker())
+  );
+
+  return results;
+}
+
+async function bulkUpsertRpc(
+  fnName: "bulk_upsert_teams" | "bulk_upsert_players",
+  rows: Record<string, unknown>[]
+): Promise<{ id: string; abl_id: string }[]> {
+  const results: { id: string; abl_id: string }[] = [];
+
+  for (let i = 0; i < rows.length; i += DB_CHUNK_SIZE) {
+    const chunk = rows.slice(i, i + DB_CHUNK_SIZE);
+    if (chunk.length === 0) continue;
+
+    const { data, error } = await supabase.rpc(fnName, { rows: chunk });
+
+    if (error) {
+      throw new Error(`Не удалось сохранить (${fnName}): ${error.message}`);
+    }
+
+    results.push(...((data as { id: string; abl_id: string }[] | null) ?? []));
+  }
+
+  return results;
+}
+
+async function bulkUpsertTable(
+  table: string,
+  rows: Record<string, unknown>[],
+  onConflict: string
+): Promise<{ id: string; abl_id?: string }[]> {
+  const results: { id: string; abl_id?: string }[] = [];
+
+  for (let i = 0; i < rows.length; i += DB_CHUNK_SIZE) {
+    const chunk = rows.slice(i, i + DB_CHUNK_SIZE);
+    if (chunk.length === 0) continue;
+
+    const { data, error } = await supabase
+      .from(table)
+      .upsert(chunk, { onConflict })
+      .select();
+
+    if (error) {
+      throw new Error(`Не удалось сохранить (${table}): ${error.message}`);
+    }
+
+    results.push(...((data as { id: string; abl_id?: string }[] | null) ?? []));
+  }
+
+  return results;
+}
+
 export type SyncSummary = {
   teams: number;
   players: number;
@@ -86,136 +169,6 @@ export type SyncSummary = {
   stats: number;
   warnings: string[];
 };
-
-async function upsertTeam(
-  ablTeamId: number,
-  name: string,
-  division: string,
-  logoUrl: string | null,
-  shortNameTaken: Set<string>
-): Promise<string> {
-  const ablId = `team:${ablTeamId}`;
-
-  const { data: existing } = await supabase
-    .from("teams")
-    .select("id")
-    .eq("abl_id", ablId)
-    .maybeSingle();
-
-  if (existing) {
-    await supabase
-      .from("teams")
-      .update({ name, division, logo_url: logoUrl })
-      .eq("id", existing.id);
-    return existing.id;
-  }
-
-  const shortName = generateShortName(name, shortNameTaken);
-  const { data: inserted, error } = await supabase
-    .from("teams")
-    .insert({ name, short_name: shortName, division, logo_url: logoUrl, abl_id: ablId })
-    .select("id")
-    .single();
-
-  if (error || !inserted) {
-    throw new Error(`Не удалось создать команду "${name}": ${error?.message}`);
-  }
-
-  return inserted.id;
-}
-
-async function upsertPlayer(
-  ablUserId: number,
-  fullName: string,
-  position: Player["position"],
-  teamId: string,
-  photoUrl: string | null
-): Promise<string> {
-  const ablId = `player:${ablUserId}`;
-
-  const { data: existing } = await supabase
-    .from("players")
-    .select("id")
-    .eq("abl_id", ablId)
-    .maybeSingle();
-
-  if (existing) {
-    await supabase
-      .from("players")
-      .update({ full_name: fullName, position, team_id: teamId, photo_url: photoUrl })
-      .eq("id", existing.id);
-    return existing.id;
-  }
-
-  const { data: inserted, error } = await supabase
-    .from("players")
-    .insert({
-      full_name: fullName,
-      position,
-      team_id: teamId,
-      price: BASE_PRICE,
-      photo_url: photoUrl,
-      abl_id: ablId,
-    })
-    .select("id")
-    .single();
-
-  if (error || !inserted) {
-    throw new Error(`Не удалось создать игрока "${fullName}": ${error?.message}`);
-  }
-
-  return inserted.id;
-}
-
-async function upsertRound(
-  ablId: string,
-  name: string,
-  status: string,
-  lockAt: string
-): Promise<string> {
-  const { data, error } = await supabase
-    .from("rounds")
-    .upsert({ abl_id: ablId, name, status, lock_at: lockAt }, { onConflict: "abl_id" })
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    throw new Error(`Не удалось создать тур "${name}": ${error?.message}`);
-  }
-
-  return data.id;
-}
-
-async function upsertMatch(
-  ablId: string,
-  roundId: string,
-  homeTeamId: string,
-  awayTeamId: string,
-  startsAt: string,
-  status: string
-): Promise<string> {
-  const { data, error } = await supabase
-    .from("matches")
-    .upsert(
-      {
-        abl_id: ablId,
-        round_id: roundId,
-        home_team_id: homeTeamId,
-        away_team_id: awayTeamId,
-        starts_at: startsAt,
-        status,
-      },
-      { onConflict: "abl_id" }
-    )
-    .select("id")
-    .single();
-
-  if (error || !data) {
-    throw new Error(`Не удалось создать матч: ${error?.message}`);
-  }
-
-  return data.id;
-}
 
 export async function syncAblTournament(
   alias: string,
@@ -229,42 +182,63 @@ export async function syncAblTournament(
     `/league/${ABL_LEAGUE_ID}/tournaments/${alias}/`
   );
 
-  const { data: existingShortNames } = await supabase.from("teams").select("short_name");
-  const shortNameTaken = new Set(
-    (existingShortNames ?? []).map((t) => t.short_name as string)
-  );
-
   log("Загружаю команды...");
   const ablTeams = await ablGet<AblTournamentTeam[]>(
     `/tournament/${tournament.id}/teams/`
   );
 
-  const teamIdByAblId = new Map<number, string>();
-  let teamsCount = 0;
+  // abl_id + short_name уже существующих команд — короткие имена НОВЫХ
+  // команд генерируем не пересекаясь ни с чужими, ни с уже занятыми;
+  // короткое имя УЖЕ существующей команды просто передаём обратно как
+  // есть (SQL-функция его всё равно не тронет при конфликте, но
+  // Postgres должен получить непустое уникальное значение на попытку
+  // INSERT ещё до разрешения конфликта).
+  const { data: existingTeams } = await supabase
+    .from("teams")
+    .select("abl_id, short_name")
+    .not("abl_id", "is", null);
 
-  for (const ablTeam of ablTeams) {
-    const teamId = await upsertTeam(
-      ablTeam.team.id,
-      ablTeam.team.name,
-      tournament.name,
-      ablTeam.team.logo?.path ?? null,
-      shortNameTaken
-    );
-    teamIdByAblId.set(ablTeam.team.id, teamId);
-    teamsCount++;
-  }
+  const shortNameByAblId = new Map(
+    (existingTeams ?? []).map((t) => [t.abl_id as string, t.short_name as string])
+  );
+  const shortNameTaken = new Set(
+    (existingTeams ?? []).map((t) => t.short_name as string)
+  );
+
+  const teamRows = ablTeams.map((ablTeam) => {
+    const ablId = `team:${ablTeam.team.id}`;
+    const shortName =
+      shortNameByAblId.get(ablId) ?? generateShortName(ablTeam.team.name, shortNameTaken);
+
+    return {
+      abl_id: ablId,
+      name: ablTeam.team.name,
+      short_name: shortName,
+      division: tournament.name,
+      logo_url: ablTeam.team.logo?.path ?? null,
+    };
+  });
+
+  const upsertedTeams = await bulkUpsertRpc("bulk_upsert_teams", teamRows);
+  const teamIdByAblId = new Map(upsertedTeams.map((t) => [t.abl_id, t.id]));
+  const teamsCount = upsertedTeams.length;
 
   log(`Команды готовы: ${teamsCount}. Загружаю составы...`);
-  const playerIdByAblUserId = new Map<number, string>();
-  let playersCount = 0;
 
-  for (const ablTeam of ablTeams) {
-    const teamId = teamIdByAblId.get(ablTeam.team.id)!;
-    const roster = await ablGet<AblRosterEntry[]>(
-      `/tournament_team/${ablTeam.id}/users/`
-    );
+  const rosters = await mapWithConcurrency(ablTeams, ABL_FETCH_CONCURRENCY, (ablTeam) =>
+    ablGet<AblRosterEntry[]>(`/tournament_team/${ablTeam.id}/users/`)
+  );
 
-    for (const entry of roster) {
+  const playerRows: Record<string, unknown>[] = [];
+
+  ablTeams.forEach((ablTeam, index) => {
+    const teamId = teamIdByAblId.get(`team:${ablTeam.team.id}`);
+    if (!teamId) {
+      warnings.push(`Пропущена команда "${ablTeam.team.name}": не удалось сохранить`);
+      return;
+    }
+
+    for (const entry of rosters[index]) {
       const user = entry.team_user.user;
       const fullName = `${user.last_name ?? ""} ${user.first_name ?? ""}`.trim();
 
@@ -273,18 +247,20 @@ export async function syncAblTournament(
         continue;
       }
 
-      const playerId = await upsertPlayer(
-        user.id,
-        fullName,
-        mapPosition(user.basketball_profile?.position),
-        teamId,
-        user.photo?.path ?? null
-      );
-
-      playerIdByAblUserId.set(user.id, playerId);
-      playersCount++;
+      playerRows.push({
+        abl_id: `player:${user.id}`,
+        full_name: fullName,
+        position: mapPosition(user.basketball_profile?.position),
+        team_id: teamId,
+        price: BASE_PRICE,
+        photo_url: user.photo?.path ?? null,
+      });
     }
-  }
+  });
+
+  const upsertedPlayers = await bulkUpsertRpc("bulk_upsert_players", playerRows);
+  const playerIdByAblId = new Map(upsertedPlayers.map((p) => [p.abl_id, p.id]));
+  const playersCount = upsertedPlayers.length;
 
   log(`Игроки готовы: ${playersCount}. Загружаю календарь...`);
   const games = await ablGet<AblGame[]>(`/tournament/${tournament.id}/games/`);
@@ -303,60 +279,77 @@ export async function syncAblTournament(
     roundGroups.set(key, list);
   }
 
-  let roundsCount = 0;
-  const roundIdByKey = new Map<string, string>();
-
-  for (const [key, groupGames] of roundGroups) {
+  const roundRows = Array.from(roundGroups.entries()).map(([key, groupGames]) => {
     const { name } = roundKeyAndName(groupGames[0])!;
-    const lockAt = groupGames
-      .map((g) => g.datetime!)
-      .sort()[0];
+    const lockAt = groupGames.map((g) => g.datetime!).sort()[0];
     const status = computeRoundStatus(groupGames.map((g) => mapMatchStatus(g.status)));
 
-    const roundId = await upsertRound(`${tournament.id}:${key}`, name, status, lockAt);
-    roundIdByKey.set(key, roundId);
-    roundsCount++;
-  }
+    return { abl_id: `${tournament.id}:${key}`, name, status, lock_at: lockAt };
+  });
+
+  const upsertedRounds = await bulkUpsertTable("rounds", roundRows, "abl_id");
+  const roundIdByAblId = new Map(
+    upsertedRounds.map((r) => [r.abl_id as string, r.id])
+  );
+  const roundsCount = upsertedRounds.length;
 
   log(`Туры готовы: ${roundsCount}. Загружаю матчи...`);
-  let matchesCount = 0;
-  const finishedMatches: { matchId: string; ablGameId: number }[] = [];
+
+  const matchRows: Record<string, unknown>[] = [];
 
   for (const game of datedGames) {
     const { key } = roundKeyAndName(game)!;
-    const roundId = roundIdByKey.get(key);
-    const homeTeamId = teamIdByAblId.get(game.team_id!);
-    const awayTeamId = teamIdByAblId.get(game.competitor_team_id!);
+    const roundId = roundIdByAblId.get(`${tournament.id}:${key}`);
+    const homeTeamId = teamIdByAblId.get(`team:${game.team_id}`);
+    const awayTeamId = teamIdByAblId.get(`team:${game.competitor_team_id}`);
 
     if (!roundId || !homeTeamId || !awayTeamId) {
       warnings.push(`Пропущен матч ${game.id}: не найдены тур или команды`);
       continue;
     }
 
-    const status = mapMatchStatus(game.status);
-    const matchId = await upsertMatch(
-      String(game.id),
-      roundId,
-      homeTeamId,
-      awayTeamId,
-      game.datetime!,
-      status
-    );
-    matchesCount++;
-
-    if (game.status === "closed") {
-      finishedMatches.push({ matchId, ablGameId: game.id });
-    }
+    matchRows.push({
+      abl_id: String(game.id),
+      round_id: roundId,
+      home_team_id: homeTeamId,
+      away_team_id: awayTeamId,
+      starts_at: game.datetime,
+      status: mapMatchStatus(game.status),
+    });
   }
 
-  log(`Матчи готовы: ${matchesCount}. Загружаю статистику (${finishedMatches.length} сыгранных матчей)...`);
-  let statsCount = 0;
+  const upsertedMatches = await bulkUpsertTable("matches", matchRows, "abl_id");
+  const matchIdByAblGameId = new Map(
+    upsertedMatches.map((m) => [m.abl_id as string, m.id])
+  );
+  const matchesCount = upsertedMatches.length;
 
-  for (const { matchId, ablGameId } of finishedMatches) {
-    const [gameUsers, stats] = await Promise.all([
-      ablGet<AblGameUser[]>(`/tournament_game/${ablGameId}/users/`),
-      ablGet<AblUserStatistic[]>(`/tournament_basketball_game/${ablGameId}/user_statistic/`),
-    ]);
+  const finishedGames = datedGames.filter(
+    (g) => g.status === "closed" && matchIdByAblGameId.has(String(g.id))
+  );
+
+  log(
+    `Матчи готовы: ${matchesCount}. Загружаю статистику (${finishedGames.length} сыгранных матчей)...`
+  );
+
+  const gameStatsPairs = await mapWithConcurrency(
+    finishedGames,
+    ABL_FETCH_CONCURRENCY,
+    async (game) => {
+      const [gameUsers, stats] = await Promise.all([
+        ablGet<AblGameUser[]>(`/tournament_game/${game.id}/users/`),
+        ablGet<AblUserStatistic[]>(
+          `/tournament_basketball_game/${game.id}/user_statistic/`
+        ),
+      ]);
+      return { game, gameUsers, stats };
+    }
+  );
+
+  const statRows: Record<string, unknown>[] = [];
+
+  for (const { game, gameUsers, stats } of gameStatsPairs) {
+    const matchId = matchIdByAblGameId.get(String(game.id))!;
 
     const playerAblUserIdByGameUserId = new Map<number, number>();
     gameUsers.forEach((gu) => {
@@ -365,42 +358,42 @@ export async function syncAblTournament(
 
     for (const stat of stats) {
       const ablUserId = playerAblUserIdByGameUserId.get(stat.game_user_id);
-      const playerId = ablUserId ? playerIdByAblUserId.get(ablUserId) : undefined;
+      const playerId = ablUserId
+        ? playerIdByAblId.get(`player:${ablUserId}`)
+        : undefined;
 
       if (!playerId) {
         warnings.push(
-          `Матч ${ablGameId}: не найден игрок для game_user_id ${stat.game_user_id}`
+          `Матч ${game.id}: не найден игрок для game_user_id ${stat.game_user_id}`
         );
         continue;
       }
 
-      const { error } = await supabase.from("player_match_stats").upsert(
-        {
-          match_id: matchId,
-          player_id: playerId,
-          two_pt_made: stat.two_points_made,
-          two_pt_miss: stat.two_point_attempts - stat.two_points_made,
-          three_pt_made: stat.three_points_made,
-          three_pt_miss: stat.three_point_attempts - stat.three_points_made,
-          ft_made: stat.free_throws_made,
-          ft_miss: stat.free_throw_attempts - stat.free_throws_made,
-          rebounds: stat.rebounds,
-          assists: stat.assists,
-          steals: stat.steals,
-          blocks: stat.blocks,
-          turnovers: stat.turnovers,
-        },
-        { onConflict: "match_id,player_id" }
-      );
-
-      if (error) {
-        warnings.push(`Матч ${ablGameId}: ошибка сохранения статистики — ${error.message}`);
-        continue;
-      }
-
-      statsCount++;
+      statRows.push({
+        match_id: matchId,
+        player_id: playerId,
+        two_pt_made: stat.two_points_made,
+        two_pt_miss: stat.two_point_attempts - stat.two_points_made,
+        three_pt_made: stat.three_points_made,
+        three_pt_miss: stat.three_point_attempts - stat.three_points_made,
+        ft_made: stat.free_throws_made,
+        ft_miss: stat.free_throw_attempts - stat.free_throws_made,
+        rebounds: stat.rebounds,
+        assists: stat.assists,
+        steals: stat.steals,
+        blocks: stat.blocks,
+        turnovers: stat.turnovers,
+      });
     }
   }
+
+  log(`Сохраняю статистику (${statRows.length} записей)...`);
+  const upsertedStats = await bulkUpsertTable(
+    "player_match_stats",
+    statRows,
+    "match_id,player_id"
+  );
+  const statsCount = upsertedStats.length;
 
   log("Готово.");
 
