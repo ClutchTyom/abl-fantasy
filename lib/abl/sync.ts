@@ -247,8 +247,16 @@ export async function syncAblTournament(
         continue;
       }
 
+      // Ключ игрока — team_user.id (регистрация ЧЕЛОВЕКА В КОНКРЕТНОЙ
+      // команде), а не user.id (сам человек). В ABL один и тот же человек
+      // может официально играть за несколько команд одновременно — при
+      // ключе по user.id повторная синхронизация другой команды просто
+      // перевешивала бы team_id, и человек пропадал из состава первой
+      // команды. team_user.id это разруливает: игрок на двух командах —
+      // две отдельные карточки, каждая копит статистику только за матчи
+      // именно этой команды (см. привязку статистики ниже, тем же ключом).
       playerRows.push({
-        abl_id: `player:${user.id}`,
+        abl_id: `player:${entry.team_user.id}`,
         full_name: fullName,
         position: mapPosition(user.basketball_profile?.position),
         team_id: teamId,
@@ -358,15 +366,18 @@ export async function syncAblTournament(
   for (const { game, gameUsers, stats } of gameStatsPairs) {
     const matchId = matchIdByAblGameId.get(String(game.id))!;
 
-    const playerAblUserIdByGameUserId = new Map<number, number>();
+    // team_user.id (не user.id) — тот же ключ, что и у самого игрока выше,
+    // чтобы статистика попала на карточку именно той команды, за которую
+    // сыгран конкретный матч, если человек играет за несколько команд.
+    const teamUserIdByGameUserId = new Map<number, number>();
     gameUsers.forEach((gu) => {
-      playerAblUserIdByGameUserId.set(gu.id, gu.team_user.user.id);
+      teamUserIdByGameUserId.set(gu.id, gu.team_user.id);
     });
 
     for (const stat of stats) {
-      const ablUserId = playerAblUserIdByGameUserId.get(stat.game_user_id);
-      const playerId = ablUserId
-        ? playerIdByAblId.get(`player:${ablUserId}`)
+      const teamUserId = teamUserIdByGameUserId.get(stat.game_user_id);
+      const playerId = teamUserId
+        ? playerIdByAblId.get(`player:${teamUserId}`)
         : undefined;
 
       if (!playerId) {
