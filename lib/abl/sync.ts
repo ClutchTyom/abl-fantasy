@@ -1,4 +1,5 @@
-import { supabase } from "@/lib/supabaseClient";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { supabase as browserSupabase } from "@/lib/supabaseClient";
 import { ablGet, ABL_DIVISIONS } from "@/lib/abl/client";
 import {
   AblGame,
@@ -114,6 +115,7 @@ async function mapWithConcurrency<T, R>(
 }
 
 async function bulkUpsertRpc(
+  client: SupabaseClient,
   fnName: "bulk_upsert_teams" | "bulk_upsert_players",
   rows: Record<string, unknown>[]
 ): Promise<{ id: string; abl_id: string }[]> {
@@ -123,7 +125,7 @@ async function bulkUpsertRpc(
     const chunk = rows.slice(i, i + DB_CHUNK_SIZE);
     if (chunk.length === 0) continue;
 
-    const { data, error } = await supabase.rpc(fnName, { rows: chunk });
+    const { data, error } = await client.rpc(fnName, { rows: chunk });
 
     if (error) {
       throw new Error(`Не удалось сохранить (${fnName}): ${error.message}`);
@@ -136,6 +138,7 @@ async function bulkUpsertRpc(
 }
 
 async function bulkUpsertTable(
+  client: SupabaseClient,
   table: string,
   rows: Record<string, unknown>[],
   onConflict: string
@@ -146,7 +149,7 @@ async function bulkUpsertTable(
     const chunk = rows.slice(i, i + DB_CHUNK_SIZE);
     if (chunk.length === 0) continue;
 
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from(table)
       .upsert(chunk, { onConflict })
       .select();
@@ -172,7 +175,8 @@ export type SyncSummary = {
 
 export async function syncAblTournament(
   alias: string,
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  client: SupabaseClient = browserSupabase
 ): Promise<SyncSummary> {
   const log = (message: string) => onProgress?.(message);
   const warnings: string[] = [];
@@ -193,7 +197,7 @@ export async function syncAblTournament(
   // есть (SQL-функция его всё равно не тронет при конфликте, но
   // Postgres должен получить непустое уникальное значение на попытку
   // INSERT ещё до разрешения конфликта).
-  const { data: existingTeams } = await supabase
+  const { data: existingTeams } = await client
     .from("teams")
     .select("abl_id, short_name")
     .not("abl_id", "is", null);
@@ -219,7 +223,7 @@ export async function syncAblTournament(
     };
   });
 
-  const upsertedTeams = await bulkUpsertRpc("bulk_upsert_teams", teamRows);
+  const upsertedTeams = await bulkUpsertRpc(client, "bulk_upsert_teams", teamRows);
   const teamIdByAblId = new Map(upsertedTeams.map((t) => [t.abl_id, t.id]));
   const teamsCount = upsertedTeams.length;
 
@@ -266,7 +270,7 @@ export async function syncAblTournament(
     }
   });
 
-  const upsertedPlayers = await bulkUpsertRpc("bulk_upsert_players", playerRows);
+  const upsertedPlayers = await bulkUpsertRpc(client, "bulk_upsert_players", playerRows);
   const playerIdByAblId = new Map(upsertedPlayers.map((p) => [p.abl_id, p.id]));
   const playersCount = upsertedPlayers.length;
 
@@ -302,7 +306,7 @@ export async function syncAblTournament(
     };
   });
 
-  const upsertedRounds = await bulkUpsertTable("rounds", roundRows, "abl_id");
+  const upsertedRounds = await bulkUpsertTable(client, "rounds", roundRows, "abl_id");
   const roundIdByAblId = new Map(
     upsertedRounds.map((r) => [r.abl_id as string, r.id])
   );
@@ -333,7 +337,7 @@ export async function syncAblTournament(
     });
   }
 
-  const upsertedMatches = await bulkUpsertTable("matches", matchRows, "abl_id");
+  const upsertedMatches = await bulkUpsertTable(client, "matches", matchRows, "abl_id");
   const matchIdByAblGameId = new Map(
     upsertedMatches.map((m) => [m.abl_id as string, m.id])
   );
@@ -407,6 +411,7 @@ export async function syncAblTournament(
 
   log(`Сохраняю статистику (${statRows.length} записей)...`);
   const upsertedStats = await bulkUpsertTable(
+    client,
     "player_match_stats",
     statRows,
     "match_id,player_id"
@@ -415,7 +420,7 @@ export async function syncAblTournament(
 
   log("Готово.");
 
-  const { error: syncLogError } = await supabase.from("sync_runs").insert({
+  const { error: syncLogError } = await client.from("sync_runs").insert({
     division_alias: alias,
     division_label: ABL_DIVISIONS.find((d) => d.alias === alias)?.label ?? alias,
     teams: teamsCount,
