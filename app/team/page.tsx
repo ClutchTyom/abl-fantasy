@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   useFantasy,
   STARTING_SLOTS,
@@ -9,10 +9,14 @@ import {
   Slot,
 } from "@/context/FantasyContext";
 import PlayerCard from "@/components/fantasy/PlayerCard";
+import PlayerPickerModal from "@/components/fantasy/PlayerPickerModal";
 import RoundResults from "@/components/fantasy/RoundResults";
 import { formatFantasyWeekName } from "@/lib/fantasyWeeks";
 import { useUser } from "@/lib/useUser";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import { fetchAllRows } from "@/lib/fetchAll";
+import { Player } from "@/types/player";
 
 const SLOT_LABELS: Record<Slot, string> = {
   PG: "Разыгрывающий (PG)",
@@ -27,15 +31,37 @@ const SLOT_LABELS: Record<Slot, string> = {
   BENCH5: "Запасной 5",
 };
 
-function EmptySlot({ label }: { label: string }) {
+function EmptySlot({
+  label,
+  onClick,
+  disabled,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled: boolean;
+}) {
   return (
-    <div className="border-2 border-dashed rounded-xl p-6 flex items-center justify-center text-center h-full min-h-[160px]">
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={disabled ? "Тур заблокирован — изменения недоступны" : undefined}
+      className="border-2 border-dashed rounded-xl p-6 flex items-center justify-center text-center h-full min-h-[160px] w-full hover:border-blue-400 hover:bg-blue-50 disabled:opacity-50 disabled:hover:border-gray-300 disabled:hover:bg-transparent disabled:cursor-not-allowed transition"
+    >
       <div>
         <p className="text-gray-400 text-sm">{label}</p>
-        <p className="text-gray-300 mt-1">Пусто</p>
+        <p className="text-blue-500 font-medium mt-1">+ Выбрать игрока</p>
       </div>
-    </div>
+    </button>
   );
+}
+
+// Слоты основы называются кодом позиции (PG/SG/.../C), который совпадает
+// с Player["position"] — используем это, чтобы понять, нужно ли жёстко
+// фиксировать позицию в пикере (запас — любая позиция).
+function startingSlotPosition(slot: Slot): Player["position"] | null {
+  return (STARTING_SLOTS as readonly string[]).includes(slot)
+    ? (slot as Player["position"])
+    : null;
 }
 
 export default function TeamPage() {
@@ -59,11 +85,29 @@ export default function TeamPage() {
   const { user, isLoading } = useUser();
   const router = useRouter();
 
+  const [allPlayers, setAllPlayers] = useState<Player[]>([]);
+  const [pickerSlot, setPickerSlot] = useState<Slot | null>(null);
+
   useEffect(() => {
     if (!isLoading && !user) {
       router.push("/login");
     }
   }, [isLoading, user, router]);
+
+  useEffect(() => {
+    async function loadPlayers() {
+      const data = await fetchAllRows<Player>((from, to) =>
+        supabase
+          .from("players")
+          .select("*, teams(name, short_name, division, logo_url)")
+          .order("price", { ascending: false })
+          .range(from, to)
+      );
+      setAllPlayers(data);
+    }
+
+    loadPlayers();
+  }, []);
 
   const filledSlots = ALL_SLOTS.filter((slot) => squad[slot]).length;
 
@@ -189,9 +233,19 @@ export default function TeamPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
         {STARTING_SLOTS.map((slot) =>
           squad[slot] ? (
-            <PlayerCard key={slot} player={squad[slot]!} variant="team" />
+            <PlayerCard
+              key={slot}
+              player={squad[slot]!}
+              variant="team"
+              onReplaceClick={() => setPickerSlot(slot)}
+            />
           ) : (
-            <EmptySlot key={slot} label={SLOT_LABELS[slot]} />
+            <EmptySlot
+              key={slot}
+              label={SLOT_LABELS[slot]}
+              onClick={() => setPickerSlot(slot)}
+              disabled={isLocked}
+            />
           )
         )}
       </div>
@@ -200,12 +254,32 @@ export default function TeamPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {BENCH_SLOTS.map((slot) =>
           squad[slot] ? (
-            <PlayerCard key={slot} player={squad[slot]!} variant="team" />
+            <PlayerCard
+              key={slot}
+              player={squad[slot]!}
+              variant="team"
+              onReplaceClick={() => setPickerSlot(slot)}
+            />
           ) : (
-            <EmptySlot key={slot} label={SLOT_LABELS[slot]} />
+            <EmptySlot
+              key={slot}
+              label={SLOT_LABELS[slot]}
+              onClick={() => setPickerSlot(slot)}
+              disabled={isLocked}
+            />
           )
         )}
       </div>
+
+      {pickerSlot && (
+        <PlayerPickerModal
+          slot={pickerSlot}
+          slotLabel={SLOT_LABELS[pickerSlot]}
+          lockedPosition={startingSlotPosition(pickerSlot)}
+          players={allPlayers}
+          onClose={() => setPickerSlot(null)}
+        />
+      )}
     </main>
   );
 }

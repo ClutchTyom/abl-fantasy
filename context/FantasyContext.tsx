@@ -82,6 +82,7 @@ async function buildSquadFromRoster(squadId: string): Promise<Squad> {
 type FantasyContextType = {
   squad: Squad;
   addPlayer: (player: Player) => void;
+  addPlayerToSlot: (player: Player, slot: Slot) => void;
   removePlayer: (playerId: string) => void;
   budget: number;
   spent: number;
@@ -339,6 +340,52 @@ export function FantasyProvider({
     });
   }
 
+  // Точечное добавление/замена в КОНКРЕТНЫЙ слот (для пикера в /team —
+  // клик по позиции). В отличие от addPlayer(), сам не выбирает слот, а
+  // проверяет бюджет/лимит "2 из одной команды" без учёта игрока, который
+  // сейчас в этом слоте (его цена и команда освобождаются заменой).
+  function addPlayerToSlot(player: Player, slot: Slot) {
+    let assigned = false;
+    let outgoingPlayerId: string | null = null;
+
+    setSquad((current) => {
+      const alreadyInAnotherSlot = ALL_SLOTS.some(
+        (s) => s !== slot && current[s]?.id === player.id
+      );
+      if (alreadyInAnotherSlot) {
+        alert("Этот игрок уже в составе");
+        return current;
+      }
+
+      const spentExcludingSlot = ALL_SLOTS.reduce((total, s) => {
+        if (s === slot) return total;
+        return total + (current[s]?.price ?? 0);
+      }, 0);
+
+      if (spentExcludingSlot + player.price > budget) {
+        alert("Недостаточно бюджета");
+        return current;
+      }
+
+      const sameTeamCountExcludingSlot = ALL_SLOTS.filter(
+        (s) => s !== slot && current[s]?.team_id === player.team_id
+      ).length;
+
+      if (sameTeamCountExcludingSlot >= 2) {
+        alert("Максимум 2 игрока из одной команды");
+        return current;
+      }
+
+      outgoingPlayerId = current[slot]?.id ?? null;
+      assigned = true;
+      return { ...current, [slot]: player };
+    });
+
+    if (assigned && outgoingPlayerId) {
+      setCaptainId((current) => (current === outgoingPlayerId ? null : current));
+    }
+  }
+
   function removePlayer(playerId: string) {
     setSquad((current) => {
       const slot = ALL_SLOTS.find((s) => current[s]?.id === playerId);
@@ -471,6 +518,7 @@ export function FantasyProvider({
       value={{
         squad,
         addPlayer,
+        addPlayerToSlot,
         removePlayer,
         budget,
         spent,

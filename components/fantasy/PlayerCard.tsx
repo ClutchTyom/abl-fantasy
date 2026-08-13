@@ -12,6 +12,7 @@ import { useFantasy } from "@/context/FantasyContext";
 type PlayerCardProps = {
   player: Player;
   variant?: "list" | "team";
+  onReplaceClick?: () => void;
 };
 
 export const POSITION_COLORS: Record<Player["position"], BadgeColor> = {
@@ -54,8 +55,9 @@ function PlayerAvatar({ player }: { player: Player }) {
 export default function PlayerCard({
   player,
   variant = "list",
+  onReplaceClick,
 }: PlayerCardProps) {
-  const { captainId } = useFantasy();
+  const { captainId, isLocked } = useFantasy();
   const isCaptain = variant === "team" && captainId === player.id;
 
   return (
@@ -105,6 +107,16 @@ export default function PlayerCard({
         {variant === "team" ? (
           <>
             <CaptainButton player={player} />
+            {onReplaceClick && (
+              <button
+                onClick={onReplaceClick}
+                disabled={isLocked}
+                title={isLocked ? "Тур заблокирован — изменения недоступны" : undefined}
+                className="bg-gray-100 hover:bg-gray-200 disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 font-semibold px-5 py-2 rounded-lg transition"
+              >
+                Заменить
+              </button>
+            )}
             <RemovePlayerButton player={player} />
           </>
         ) : (
