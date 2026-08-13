@@ -8,6 +8,7 @@ import type { User } from "@supabase/supabase-js";
 
 const LINKS = [
   { href: "/", label: "Главная" },
+  { href: "/schedule", label: "Календарь" },
   { href: "/players", label: "Игроки" },
   { href: "/team", label: "Моя команда" },
   { href: "/leaderboard", label: "Рейтинг" },
