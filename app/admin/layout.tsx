@@ -56,7 +56,7 @@ export default function AdminLayout({
               href={link.href}
               className={
                 isActive
-                  ? "bg-blue-600 text-white font-semibold px-4 py-2 rounded-lg text-sm transition"
+                  ? "bg-abl-600 text-white font-semibold px-4 py-2 rounded-lg text-sm transition"
                   : "bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg text-sm transition"
               }
             >

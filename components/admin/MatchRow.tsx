@@ -108,7 +108,7 @@ export default function MatchRow({ match, onSaved, onDeleted }: MatchRowProps) {
         <div className="flex gap-3 items-center">
           <Link
             href={`/admin/matches/${match.id}`}
-            className="text-blue-600 hover:underline text-sm"
+            className="text-abl-600 hover:underline text-sm"
           >
             Статистика
           </Link>

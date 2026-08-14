@@ -99,7 +99,7 @@ export default function TeamDetailPage() {
 
   return (
     <main className="max-w-6xl mx-auto p-4 sm:p-8">
-      <Link href="/players" className="text-blue-600 hover:underline text-sm">
+      <Link href="/players" className="text-abl-600 hover:underline text-sm">
         ← Назад к игрокам
       </Link>
 

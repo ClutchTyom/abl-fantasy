@@ -127,7 +127,7 @@ export default function LeaderboardPage() {
                   <tr
                     key={row.userId}
                     className={`border-b last:border-0 ${
-                      row.userId === user.id ? "bg-blue-50" : ""
+                      row.userId === user.id ? "bg-abl-50" : ""
                     }`}
                   >
                     <td className="p-3 font-bold text-gray-500">
@@ -140,14 +140,14 @@ export default function LeaderboardPage() {
                         </div>
                         <span className="font-medium">{row.username}</span>
                         {row.userId === user.id && (
-                          <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                          <span className="text-xs font-bold bg-abl-100 text-abl-700 px-2 py-0.5 rounded-full">
                             Вы
                           </span>
                         )}
                       </div>
                     </td>
                     <td className="p-3 text-gray-500">{row.roundsPlayed}</td>
-                    <td className="p-3 font-bold text-blue-600">
+                    <td className="p-3 font-bold text-abl-600">
                       {row.totalPoints.toFixed(1)}
                     </td>
                   </tr>

@@ -22,13 +22,13 @@ function MarketingLanding() {
         <div className="mt-10 flex items-center justify-center gap-4 flex-wrap">
           <Link
             href="/team"
-            className="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-lg font-semibold transition"
+            className="inline-block bg-abl-600 hover:bg-abl-700 text-white px-8 py-4 rounded-xl text-lg font-semibold transition"
           >
             Начать играть
           </Link>
           <Link
             href="/rules"
-            className="inline-block text-blue-600 hover:underline px-4 py-4 text-lg font-medium"
+            className="inline-block text-abl-600 hover:underline px-4 py-4 text-lg font-medium"
           >
             Правила игры
           </Link>

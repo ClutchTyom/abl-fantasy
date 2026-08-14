@@ -107,7 +107,7 @@ export default function AdminRoundsPage() {
           {roundError && <p className="text-red-600 text-sm">{roundError}</p>}
           <button
             type="submit"
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-2 rounded-lg transition"
+            className="bg-abl-600 hover:bg-abl-700 text-white font-semibold px-5 py-2 rounded-lg transition"
           >
             Добавить тур
           </button>

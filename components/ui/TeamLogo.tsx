@@ -23,7 +23,7 @@ export default function TeamLogo({ logoUrl, shortName, size = 40 }: TeamLogoProp
   return (
     <div
       style={{ width: size, height: size, fontSize: Math.max(9, size * 0.32) }}
-      className="rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold flex-shrink-0"
+      className="rounded-full bg-abl-100 text-abl-700 flex items-center justify-center font-bold flex-shrink-0"
     >
       {shortName}
     </div>

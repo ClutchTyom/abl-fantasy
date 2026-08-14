@@ -143,7 +143,7 @@ export default function AdminDashboardPage() {
           )}
           <Link
             href="/admin/import"
-            className="inline-block mt-3 text-blue-600 hover:underline text-sm"
+            className="inline-block mt-3 text-abl-600 hover:underline text-sm"
           >
             Синхронизировать →
           </Link>
@@ -165,7 +165,7 @@ export default function AdminDashboardPage() {
           )}
           <Link
             href="/admin/rounds"
-            className="inline-block mt-3 text-blue-600 hover:underline text-sm"
+            className="inline-block mt-3 text-abl-600 hover:underline text-sm"
           >
             Все туры →
           </Link>

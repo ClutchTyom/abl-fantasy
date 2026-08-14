@@ -10,6 +10,18 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Фирменный красный ABL (ablforpeople.com) — 600/700/800 сняты прямо
+     с их сайта (основной/hover/active цвет кнопок и ссылок), остальные
+     оттенки — интерполяция для более светлых бейджей/подложек. */
+  --color-abl-50: #fdeceb;
+  --color-abl-100: #fbd7d6;
+  --color-abl-200: #f6b3b1;
+  --color-abl-400: #f26d69;
+  --color-abl-500: #f0524f;
+  --color-abl-600: #ee3c3e;
+  --color-abl-700: #ec292b;
+  --color-abl-800: #da1315;
 }
 
 @media (prefers-color-scheme: dark) {

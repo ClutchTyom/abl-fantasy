@@ -122,7 +122,7 @@ export default function PlayersPage() {
 
       <div className="mb-8 border rounded-xl p-5 bg-white shadow-sm flex gap-8">
         <p className="text-lg font-semibold">
-          Потрачено: <span className="text-blue-600">{spent}</span>
+          Потрачено: <span className="text-abl-600">{spent}</span>
         </p>
         <p className="text-lg font-semibold">
           Осталось:{" "}

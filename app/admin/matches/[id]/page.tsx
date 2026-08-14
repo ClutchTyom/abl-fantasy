@@ -162,7 +162,7 @@ export default function AdminMatchStatsPage() {
 
   return (
     <div>
-      <Link href="/admin/matches" className="text-blue-600 hover:underline text-sm">
+      <Link href="/admin/matches" className="text-abl-600 hover:underline text-sm">
         ← Назад к списку матчей
       </Link>
 

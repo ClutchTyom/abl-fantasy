@@ -127,7 +127,7 @@ export default function RegisterPage() {
             />
             <span>
               Я согласен(а) с{" "}
-              <Link href="/privacy" target="_blank" className="text-blue-600 hover:underline">
+              <Link href="/privacy" target="_blank" className="text-abl-600 hover:underline">
                 политикой конфиденциальности
               </Link>{" "}
               и даю согласие на обработку персональных данных
@@ -139,7 +139,7 @@ export default function RegisterPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 rounded-lg transition disabled:opacity-50"
+            className="w-full bg-abl-600 hover:bg-abl-700 text-white font-semibold px-5 py-3 rounded-lg transition disabled:opacity-50"
           >
             {isLoading ? "Регистрируем..." : "Зарегистрироваться"}
           </button>
@@ -147,7 +147,7 @@ export default function RegisterPage() {
 
         <p className="text-sm text-gray-500 mt-6 text-center">
           Уже есть аккаунт?{" "}
-          <Link href="/login" className="text-blue-600 font-medium hover:underline">
+          <Link href="/login" className="text-abl-600 font-medium hover:underline">
             Войти
           </Link>
         </p>

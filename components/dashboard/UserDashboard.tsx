@@ -151,7 +151,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
         </div>
         <Link
           href="/team"
-          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-xl transition"
+          className="bg-abl-600 hover:bg-abl-700 text-white font-semibold px-6 py-3 rounded-xl transition"
         >
           Собрать команду
         </Link>
@@ -163,7 +163,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
           {isLoadingStats ? (
             <p className="text-gray-400">Загрузка...</p>
           ) : previousResult ? (
-            <p className="text-3xl font-bold text-blue-600">
+            <p className="text-3xl font-bold text-abl-600">
               {previousResult.totalPoints.toFixed(1)} FP
             </p>
           ) : (
@@ -206,7 +206,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
           ) : bestPlayer ? (
             <p className="text-lg font-bold">
               {bestPlayer.fullName}{" "}
-              <span className="text-blue-600">
+              <span className="text-abl-600">
                 — {bestPlayer.points.toFixed(1)} FP
               </span>
             </p>

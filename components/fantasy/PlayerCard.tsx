@@ -72,7 +72,7 @@ export default function PlayerCard({
               <h3 className="text-lg font-bold truncate">
                 <Link
                   href={`/players/${player.id}`}
-                  className="hover:text-blue-600 hover:underline"
+                  className="hover:text-abl-600 hover:underline"
                 >
                   {player.full_name}
                 </Link>
@@ -133,7 +133,7 @@ export default function PlayerCard({
             </div>
             <div>
               <p className="text-gray-400 text-xs">FP/игру</p>
-              <p className="font-bold text-blue-600">
+              <p className="font-bold text-abl-600">
                 {seasonStats.avgFantasyPoints.toFixed(1)}
               </p>
             </div>

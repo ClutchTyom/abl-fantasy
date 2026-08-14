@@ -166,7 +166,7 @@ export default function PlayerDetailPage() {
 
   return (
     <main className="max-w-4xl mx-auto p-4 sm:p-8">
-      <Link href="/players" className="text-blue-600 hover:underline text-sm">
+      <Link href="/players" className="text-abl-600 hover:underline text-sm">
         ← Назад к игрокам
       </Link>
 
@@ -195,7 +195,7 @@ export default function PlayerDetailPage() {
           {player.teams && (
             <Link
               href={`/teams/${player.team_id}`}
-              className="text-gray-500 mt-1 flex items-center justify-center sm:justify-start gap-1.5 hover:text-blue-600 hover:underline"
+              className="text-gray-500 mt-1 flex items-center justify-center sm:justify-start gap-1.5 hover:text-abl-600 hover:underline"
             >
               <TeamLogo
                 logoUrl={player.teams.logo_url}
@@ -269,7 +269,7 @@ export default function PlayerDetailPage() {
                     <td className="p-3 text-center">{calculatePoints(game)}</td>
                     <td className="p-3 text-center">{game.rebounds}</td>
                     <td className="p-3 text-center">{game.assists}</td>
-                    <td className="p-3 text-center font-semibold text-blue-600">
+                    <td className="p-3 text-center font-semibold text-abl-600">
                       {calculateFantasyPoints(game).toFixed(1)}
                     </td>
                   </tr>

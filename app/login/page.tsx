@@ -68,7 +68,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold px-5 py-3 rounded-lg transition disabled:opacity-50"
+            className="w-full bg-abl-600 hover:bg-abl-700 text-white font-semibold px-5 py-3 rounded-lg transition disabled:opacity-50"
           >
             {isLoading ? "Входим..." : "Войти"}
           </button>
@@ -76,7 +76,7 @@ export default function LoginPage() {
 
         <p className="text-sm text-gray-500 mt-6 text-center">
           Нет аккаунта?{" "}
-          <Link href="/register" className="text-blue-600 font-medium hover:underline">
+          <Link href="/register" className="text-abl-600 font-medium hover:underline">
             Зарегистрироваться
           </Link>
         </p>

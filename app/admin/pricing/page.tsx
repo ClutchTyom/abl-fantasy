@@ -42,7 +42,7 @@ export default function AdminPricingPage() {
         <button
           onClick={handleRecalculate}
           disabled={isRunning}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-lg transition"
+          className="bg-abl-600 hover:bg-abl-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-lg transition"
         >
           {isRunning ? "Считаем..." : "Пересчитать цены"}
         </button>

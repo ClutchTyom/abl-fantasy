@@ -148,7 +148,7 @@ export default function SchedulePage() {
             onClick={() => setTimeframe("upcoming")}
             className={`px-4 py-2 text-sm font-medium transition ${
               timeframe === "upcoming"
-                ? "bg-blue-600 text-white"
+                ? "bg-abl-600 text-white"
                 : "bg-white text-gray-700 hover:bg-gray-50"
             }`}
           >
@@ -158,7 +158,7 @@ export default function SchedulePage() {
             onClick={() => setTimeframe("past")}
             className={`px-4 py-2 text-sm font-medium transition border-l ${
               timeframe === "past"
-                ? "bg-blue-600 text-white"
+                ? "bg-abl-600 text-white"
                 : "bg-white text-gray-700 hover:bg-gray-50"
             }`}
           >

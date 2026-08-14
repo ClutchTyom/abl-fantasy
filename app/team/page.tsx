@@ -46,11 +46,11 @@ function EmptySlot({
       onClick={onClick}
       disabled={disabled}
       title={disabled ? "Тур заблокирован — изменения недоступны" : undefined}
-      className="border-2 border-dashed rounded-xl p-6 flex items-center justify-center text-center h-full min-h-[160px] w-full hover:border-blue-400 hover:bg-blue-50 disabled:opacity-50 disabled:hover:border-gray-300 disabled:hover:bg-transparent disabled:cursor-not-allowed transition"
+      className="border-2 border-dashed rounded-xl p-6 flex items-center justify-center text-center h-full min-h-[160px] w-full hover:border-abl-400 hover:bg-abl-50 disabled:opacity-50 disabled:hover:border-gray-300 disabled:hover:bg-transparent disabled:cursor-not-allowed transition"
     >
       <div>
         <p className="text-gray-400 text-sm">{label}</p>
-        <p className="text-blue-500 font-medium mt-1">+ Выбрать игрока</p>
+        <p className="text-abl-500 font-medium mt-1">+ Выбрать игрока</p>
       </div>
     </button>
   );
@@ -127,7 +127,7 @@ export default function TeamPage() {
       <RoundResults userId={user.id} />
 
       {isCarriedOver && (
-        <div className="mb-8 border border-blue-200 rounded-xl p-4 bg-blue-50 text-blue-800 text-sm">
+        <div className="mb-8 border border-abl-200 rounded-xl p-4 bg-abl-50 text-abl-800 text-sm">
           Это состав из прошлого тура — сделайте трансферы (если нужно) и
           нажмите «Сохранить состав», чтобы зафиксировать его на новый тур.
         </div>
@@ -158,7 +158,7 @@ export default function TeamPage() {
         <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all ${
-              remaining < 0 ? "bg-red-500" : "bg-blue-600"
+              remaining < 0 ? "bg-red-500" : "bg-abl-600"
             }`}
             style={{ width: `${Math.min(100, (spent / budget) * 100)}%` }}
           />
@@ -189,7 +189,7 @@ export default function TeamPage() {
           {round ? (
             <p className="font-semibold">
               Сохранение состава на:{" "}
-              <span className="text-blue-600">{formatFantasyWeekName(round.starts_at)}</span>
+              <span className="text-abl-600">{formatFantasyWeekName(round.starts_at)}</span>
               <span className="text-gray-400 font-normal">
                 {" "}
                 · блокировка {new Date(round.starts_at).toLocaleString("ru-RU")}
@@ -217,7 +217,7 @@ export default function TeamPage() {
           <button
             onClick={saveSquad}
             disabled={!round || isSaving || isLocked || remaining < 0 || !isSquadComplete}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-lg transition"
+            className="bg-abl-600 hover:bg-abl-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold px-6 py-3 rounded-lg transition"
           >
             {isSaving ? "Сохраняем..." : "Сохранить состав"}
           </button>

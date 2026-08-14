@@ -64,8 +64,8 @@ export default function Nav() {
               href={link.href}
               className={
                 isActiveLink(link.href)
-                  ? "text-blue-600 font-semibold"
-                  : "text-gray-700 hover:text-blue-600 transition"
+                  ? "text-abl-600 font-semibold"
+                  : "text-gray-700 hover:text-abl-600 transition"
               }
             >
               {link.label}
@@ -91,7 +91,7 @@ export default function Nav() {
               </Link>
               <Link
                 href="/register"
-                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg transition"
+                className="bg-abl-600 hover:bg-abl-700 text-white font-semibold px-4 py-2 rounded-lg transition"
               >
                 Регистрация
               </Link>
@@ -123,7 +123,7 @@ export default function Nav() {
               key={link.href}
               href={link.href}
               className={`block font-medium py-1 ${
-                isActiveLink(link.href) ? "text-blue-600" : "text-gray-700"
+                isActiveLink(link.href) ? "text-abl-600" : "text-gray-700"
               }`}
             >
               {link.label}
@@ -145,7 +145,7 @@ export default function Nav() {
                 </Link>
                 <Link
                   href="/register"
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg text-center transition"
+                  className="bg-abl-600 hover:bg-abl-700 text-white font-semibold px-4 py-2 rounded-lg text-center transition"
                 >
                   Регистрация
                 </Link>

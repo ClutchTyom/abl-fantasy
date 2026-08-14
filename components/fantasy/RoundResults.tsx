@@ -54,7 +54,7 @@ export default function RoundResults({ userId }: { userId: string }) {
                     {result.isCompleted ? "Тур завершён" : "Тур идёт"}
                   </p>
                 </div>
-                <p className="text-2xl font-bold text-blue-600">
+                <p className="text-2xl font-bold text-abl-600">
                   {result.totalPoints.toFixed(1)}
                 </p>
               </div>

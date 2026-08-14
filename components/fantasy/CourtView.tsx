@@ -24,7 +24,7 @@ export default function CourtView({ onSlotClick }: CourtViewProps) {
   const { squad, captainId, isLocked, removePlayer } = useFantasy();
 
   return (
-    <div className="relative w-full max-w-md mx-auto aspect-[3/4] rounded-3xl overflow-hidden bg-gradient-to-b from-blue-600 to-blue-800 border-4 border-white/20 shadow-lg">
+    <div className="relative w-full max-w-md mx-auto aspect-[3/4] rounded-3xl overflow-hidden bg-gradient-to-b from-slate-800 to-slate-900 border-4 border-abl-700/40 shadow-lg">
       {/* Лицевая линия */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-white/40" />
       {/* Трёхсекундная зона */}

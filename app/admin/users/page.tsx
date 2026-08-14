@@ -103,7 +103,7 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="p-3">
                     {u.is_admin ? (
-                      <span className="text-xs font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                      <span className="text-xs font-bold bg-abl-100 text-abl-700 px-2 py-0.5 rounded-full">
                         Админ
                       </span>
                     ) : (
@@ -122,7 +122,7 @@ export default function AdminUsersPage() {
                       className={
                         u.is_admin
                           ? "bg-red-100 hover:bg-red-200 disabled:opacity-40 disabled:cursor-not-allowed text-red-700 text-sm font-semibold px-3 py-1 rounded-lg transition"
-                          : "bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-3 py-1 rounded-lg transition"
+                          : "bg-abl-600 hover:bg-abl-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-3 py-1 rounded-lg transition"
                       }
                     >
                       {u.is_admin ? "Забрать права" : "Сделать админом"}
