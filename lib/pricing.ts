@@ -3,7 +3,7 @@ import { calculateFantasyPoints } from "@/lib/fantasyPoints";
 import { fetchAllRows } from "@/lib/fetchAll";
 import { PlayerMatchStats, StatLine } from "@/types/playerMatchStats";
 
-export const MIN_PRICE = 8;
+export const MIN_PRICE = 6;
 export const MAX_PRICE = 17;
 export const MIN_GAMES_FOR_TIER = 2;
 

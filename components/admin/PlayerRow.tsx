@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { Player } from "@/types/player";
+import { MIN_PRICE, MAX_PRICE } from "@/lib/pricing";
 
 const POSITIONS = ["PG", "SG", "SF", "PF", "C"] as const;
 
@@ -79,8 +80,8 @@ export default function PlayerRow({
       <td className="p-3">
         <input
           type="number"
-          min={8}
-          max={17}
+          min={MIN_PRICE}
+          max={MAX_PRICE}
           value={price}
           onChange={(e) => setPrice(Number(e.target.value))}
           className="w-20 border rounded-lg px-2 py-1"

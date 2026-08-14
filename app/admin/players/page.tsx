@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { fetchAllRows } from "@/lib/fetchAll";
 import { Player } from "@/types/player";
 import PlayerRow from "@/components/admin/PlayerRow";
+import { MIN_PRICE, MAX_PRICE } from "@/lib/pricing";
 
 const POSITIONS = ["PG", "SG", "SF", "PF", "C"] as const;
 
@@ -21,7 +22,7 @@ export default function AdminPlayersPage() {
 
   const [playerName, setPlayerName] = useState("");
   const [playerPosition, setPlayerPosition] = useState<string>("PG");
-  const [playerPrice, setPlayerPrice] = useState(8);
+  const [playerPrice, setPlayerPrice] = useState(MIN_PRICE);
   const [playerTeamId, setPlayerTeamId] = useState("");
   const [playerError, setPlayerError] = useState<string | null>(null);
 
@@ -76,7 +77,7 @@ export default function AdminPlayersPage() {
     }
 
     setPlayerName("");
-    setPlayerPrice(8);
+    setPlayerPrice(MIN_PRICE);
     loadData();
   }
 
@@ -146,8 +147,8 @@ export default function AdminPlayersPage() {
 
             <input
               type="number"
-              min={8}
-              max={17}
+              min={MIN_PRICE}
+              max={MAX_PRICE}
               value={playerPrice}
               onChange={(e) => setPlayerPrice(Number(e.target.value))}
               className="w-24 border rounded-lg px-4 py-2"

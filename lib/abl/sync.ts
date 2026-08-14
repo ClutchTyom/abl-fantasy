@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase as browserSupabase } from "@/lib/supabaseClient";
 import { ablGet, ABL_DIVISIONS } from "@/lib/abl/client";
+import { MIN_PRICE } from "@/lib/pricing";
 import {
   AblGame,
   AblGameUser,
@@ -12,7 +13,11 @@ import {
 import { Player } from "@/types/player";
 
 const ABL_LEAGUE_ID = 2;
-const BASE_PRICE = 8;
+// Плейсхолдер-цена для только что синхронизированного игрока — держим
+// её равной MIN_PRICE (не отдельной константой), чтобы они не могли
+// разъехаться: до первого пересчёта цен в /admin/pricing новый игрок
+// должен стоить ровно "минимум", а не какое-то отдельное число.
+const BASE_PRICE = MIN_PRICE;
 
 // Сколько запросов к ABL держим в полёте одновременно при загрузке
 // составов команд / статистики матчей — это единственная часть синка,
