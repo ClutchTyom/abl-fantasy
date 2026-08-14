@@ -10,6 +10,7 @@ import {
 } from "@/context/FantasyContext";
 import PlayerCard from "@/components/fantasy/PlayerCard";
 import PlayerPickerModal from "@/components/fantasy/PlayerPickerModal";
+import CourtView from "@/components/fantasy/CourtView";
 import RoundResults from "@/components/fantasy/RoundResults";
 import { formatFantasyWeekName } from "@/lib/fantasyWeeks";
 import { useUser } from "@/lib/useUser";
@@ -230,24 +231,12 @@ export default function TeamPage() {
       </div>
 
       <h2 className="text-2xl font-bold mb-4">Основа</h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-        {STARTING_SLOTS.map((slot) =>
-          squad[slot] ? (
-            <PlayerCard
-              key={slot}
-              player={squad[slot]!}
-              variant="team"
-              onReplaceClick={() => setPickerSlot(slot)}
-            />
-          ) : (
-            <EmptySlot
-              key={slot}
-              label={SLOT_LABELS[slot]}
-              onClick={() => setPickerSlot(slot)}
-              disabled={isLocked}
-            />
-          )
-        )}
+      <p className="text-gray-500 text-sm mb-4 -mt-2">
+        Клик по игроку на площадке — заменить, крестик — убрать. Клик по
+        пустой позиции — выбрать игрока.
+      </p>
+      <div className="mb-10">
+        <CourtView onSlotClick={setPickerSlot} />
       </div>
 
       <h2 className="text-2xl font-bold mb-4">Запас</h2>
