@@ -17,6 +17,14 @@ const KNOWN_ERRORS: { match: string; message: string }[] = [
     match: "password should be at least",
     message: "Пароль слишком короткий — минимум 6 символов.",
   },
+  {
+    match: "rate limit",
+    message: "Слишком много попыток — подождите немного и попробуйте снова.",
+  },
+  {
+    match: "should be different from the old password",
+    message: "Новый пароль должен отличаться от старого.",
+  },
 ];
 
 export function translateAuthError(message: string): string {
