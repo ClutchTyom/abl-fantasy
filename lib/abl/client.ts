@@ -48,20 +48,25 @@ export async function ablGet<T>(path: string): Promise<T> {
   throw lastError!;
 }
 
-// Известные на данный момент дивизионы ABL. Список можно расширять по мере
-// подключения новых дивизионов — раздел "Дивизионы" на ablforpeople.com.
+// Дивизионы на текущий сезон ABL (2026/2027 — проверено на ablforpeople.com
+// и напрямую через /league/2/tournaments/ в октябре 2026). Прошлый список
+// (restwblhigh, restwbllove, resthigh26, restlove26, resthard26, restbeef,
+// restslam, resteasy26, restdrop26, restflow) был под старый сезон — эти
+// турниры закончились и больше не возвращаются API, из старых "Rest*"
+// выжили только restrofl26/restlite26/restsoft26. По просьбе — взрослые
+// дивизионы, кроме Астаны и PLUS, плюс все возраста PYC (без PPC).
 export const ABL_DIVISIONS = [
-  { alias: "restwblhigh", label: "WBL High (жен.)" },
-  { alias: "restwbllove", label: "WBL Love (жен.)" },
-  { alias: "resthigh26", label: "Rest High" },
-  { alias: "restlove26", label: "Rest Love" },
-  { alias: "resthard26", label: "Rest Hard" },
-  { alias: "restbeef", label: "Rest Beef" },
-  { alias: "restslam", label: "Rest Slam" },
-  { alias: "resteasy26", label: "Rest Easy" },
-  { alias: "restdrop26", label: "Rest Drop" },
+  { alias: "shelepiha27", label: "Шелепиха" },
+  { alias: "perovo27", label: "Перово" },
+  { alias: "mos", label: "Москвич" },
+  { alias: "profa", label: "Профа" },
+  { alias: "wblkval", label: "WBL (жен.)" },
+  { alias: "purekval", label: "PURE" },
   { alias: "restrofl26", label: "Rest Rofl" },
-  { alias: "restflow", label: "Rest Flow" },
-  { alias: "restsoft26", label: "Rest Soft" },
   { alias: "restlite26", label: "Rest Lite" },
+  { alias: "restsoft26", label: "Rest Soft" },
+  { alias: "kids10-11", label: "PYC U16" },
+  { alias: "kids12-13", label: "PYC U14" },
+  { alias: "kids14-15", label: "PYC U12" },
+  { alias: "kids16-17", label: "PYC U10" },
 ] as const;
