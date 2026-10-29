@@ -86,8 +86,11 @@ export async function recalculatePlayerPrices(): Promise<PriceRecalcSummary> {
   >[];
 
   try {
+    // Архивные игроки (прошлые сезоны) в расчёте не участвуют: иначе квоты
+    // цен делились бы и на них, и у нынешних игроков распределение цен
+    // было бы смещено вниз. Их цены остаются прежними.
     players = await fetchAllRows<{ id: string }>((from, to) =>
-      supabase.from("players").select("id").range(from, to)
+      supabase.from("players").select("id").is("archived_at", null).range(from, to)
     );
 
     statsRows = await fetchAllRows((from, to) =>
