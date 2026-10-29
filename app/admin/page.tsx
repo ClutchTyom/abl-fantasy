@@ -53,8 +53,14 @@ export default function AdminDashboardPage() {
         roundData,
         fantasyWeek,
       ] = await Promise.all([
-        supabase.from("teams").select("id", { count: "exact", head: true }),
-        supabase.from("players").select("id", { count: "exact", head: true }),
+        supabase
+          .from("teams")
+          .select("id", { count: "exact", head: true })
+          .is("archived_at", null),
+        supabase
+          .from("players")
+          .select("id", { count: "exact", head: true })
+          .is("archived_at", null),
         supabase.from("matches").select("id", { count: "exact", head: true }),
         supabase
           .from("player_match_stats")

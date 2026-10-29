@@ -13,6 +13,7 @@ const NAV_LINKS = [
   { href: "/admin/matches", label: "Матчи" },
   { href: "/admin/import", label: "Импорт из ABL" },
   { href: "/admin/pricing", label: "Пересчёт цен" },
+  { href: "/admin/archive", label: "Архив" },
   { href: "/admin/users", label: "Пользователи" },
 ] as const;
 

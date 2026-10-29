@@ -65,8 +65,10 @@ export default function SchedulePage() {
           supabase
             .from("matches")
             .select(
-              "id, starts_at, status, home_team_id, away_team_id, rounds(name), home_team:teams!matches_home_team_id_fkey(name, short_name, division, logo_url), away_team:teams!matches_away_team_id_fkey(name, short_name, division, logo_url)"
+              "id, starts_at, status, home_team_id, away_team_id, rounds(name), home_team:teams!matches_home_team_id_fkey!inner(name, short_name, division, logo_url), away_team:teams!matches_away_team_id_fkey!inner(name, short_name, division, logo_url)"
             )
+            .is("home_team.archived_at", null)
+            .is("away_team.archived_at", null)
             .order("starts_at")
             .range(from, to)
         );

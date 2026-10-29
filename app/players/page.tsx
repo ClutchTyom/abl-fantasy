@@ -45,6 +45,7 @@ export default function PlayersPage() {
           supabase
             .from("players")
             .select("*, teams(name, short_name, division, logo_url)")
+            .is("archived_at", null)
             .order("price", { ascending: false })
             .range(from, to)
         );

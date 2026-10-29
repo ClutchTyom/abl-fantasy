@@ -113,6 +113,7 @@ export default function TeamPage() {
           .from("players")
           .select("*, teams!inner(name, short_name, division, logo_url, hall_id)")
           .eq("teams.hall_id", hallId)
+          .is("archived_at", null)
           .order("price", { ascending: false })
           .range(from, to)
       );

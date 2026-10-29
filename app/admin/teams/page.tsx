@@ -23,7 +23,12 @@ export default function AdminTeamsPage() {
     setLoadingData(true);
 
     const teamsData = await fetchAllRows<Team>((from, to) =>
-      supabase.from("teams").select("id, name, short_name").order("name").range(from, to)
+      supabase
+        .from("teams")
+        .select("id, name, short_name")
+        .is("archived_at", null)
+        .order("name")
+        .range(from, to)
     );
 
     setTeams(teamsData);
