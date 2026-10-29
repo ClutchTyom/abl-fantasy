@@ -5,6 +5,7 @@ import PlayerCard from "@/components/fantasy/PlayerCard";
 import SectionTitle from "@/components/ui/SectionTitle";
 import { useFantasy } from "@/context/FantasyContext";
 import { supabase } from "@/lib/supabaseClient";
+import { sortDivisionLabels } from "@/lib/abl/client";
 import { fetchAllRows } from "@/lib/fetchAll";
 import { Player } from "@/types/player";
 import { useRouter } from "next/navigation";
@@ -67,7 +68,7 @@ export default function PlayersPage() {
     const divisions = players
       .map((p) => p.teams?.division)
       .filter((division): division is string => Boolean(division));
-    return Array.from(new Set(divisions)).sort();
+    return sortDivisionLabels(divisions);
   }, [players]);
 
   const teamOptions = useMemo(() => {

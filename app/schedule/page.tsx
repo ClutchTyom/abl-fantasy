@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { fetchAllRows } from "@/lib/fetchAll";
+import { sortDivisionLabels } from "@/lib/abl/client";
 import SectionTitle from "@/components/ui/SectionTitle";
 import TeamLogo from "@/components/ui/TeamLogo";
 
@@ -89,9 +90,7 @@ export default function SchedulePage() {
       m.home_team?.division,
       m.away_team?.division,
     ]);
-    return Array.from(
-      new Set(divisions.filter((d): d is string => Boolean(d)))
-    ).sort();
+    return sortDivisionLabels(divisions.filter((d): d is string => Boolean(d)));
   }, [matches]);
 
   const teamOptions = useMemo(() => {

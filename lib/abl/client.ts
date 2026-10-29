@@ -64,38 +64,53 @@ export const ABL_HALLS = [
 
 export type AblHallSlug = (typeof ABL_HALLS)[number]["slug"];
 
+// Список идёт от сильных дивизионов к слабым — порядок взят из поля sort
+// турниров в API mtgame.ru (общий для всех залов), затем PURE и WBL. По
+// нему сортируются выпадающие списки дивизионов (см. sortDivisionLabels).
 export const ABL_DIVISIONS: readonly {
   alias: string;
   label: string;
   hall: AblHallSlug;
 }[] = [
-  { alias: "hope26-27", label: "HOPE", hall: "moskvich" },
-  { alias: "lite26-27", label: "LITE", hall: "moskvich" },
-  { alias: "soft26-27", label: "SOFT", hall: "moskvich" },
-  { alias: "base26-27", label: "BASE", hall: "moskvich" },
-  { alias: "grow26-28", label: "GROW", hall: "moskvich" },
-
-  { alias: "pale26-27", label: "PALE", hall: "profa" },
-  { alias: "slow26-27", label: "SLOW", hall: "profa" },
-  { alias: "rook26-27", label: "ROOK", hall: "profa" },
-  { alias: "last26-27", label: "LAST", hall: "profa" },
-
   { alias: "high26-27", label: "HIGH", hall: "shelepiha" },
   { alias: "love26-27", label: "LOVE", hall: "shelepiha" },
   { alias: "hard26-27", label: "HARD", hall: "shelepiha" },
   { alias: "beef26-27", label: "BEEF", hall: "shelepiha" },
-
   { alias: "slam26-27", label: "SLAM", hall: "perovo" },
   { alias: "easy26-27", label: "EASY", hall: "perovo" },
   { alias: "drop26-27", label: "DROP", hall: "perovo" },
   { alias: "rofl26-27", label: "ROFL", hall: "perovo" },
   { alias: "flow26-27", label: "FLOW", hall: "perovo" },
-
+  { alias: "soft26-27", label: "SOFT", hall: "moskvich" },
+  { alias: "lite26-27", label: "LITE", hall: "moskvich" },
+  { alias: "base26-27", label: "BASE", hall: "moskvich" },
+  { alias: "grow26-28", label: "GROW", hall: "moskvich" },
+  { alias: "hope26-27", label: "HOPE", hall: "moskvich" },
+  { alias: "pale26-27", label: "PALE", hall: "profa" },
+  { alias: "slow26-27", label: "SLOW", hall: "profa" },
+  { alias: "rook26-27", label: "ROOK", hall: "profa" },
+  { alias: "last26-27", label: "LAST", hall: "profa" },
   { alias: "purehigh26-27", label: "PURE HIGH", hall: "pure" },
   { alias: "purelove26-27", label: "PURE LOVE", hall: "pure" },
-
   { alias: "wblhigh26-27", label: "WBL HIGH", hall: "wbl" },
   { alias: "wbllove26-27", label: "WBL LOVE", hall: "wbl" },
   { alias: "wbleasy26-27", label: "WBL EASY", hall: "wbl" },
   { alias: "wblrofl26-27", label: "WBL ROFL", hall: "wbl" },
 ];
+
+// Сортирует названия дивизионов от сильных к слабым. Названия, которых нет
+// в ABL_DIVISIONS (например, дивизионы прошлых сезонов), идут в конце по
+// алфавиту.
+export function sortDivisionLabels(labels: Iterable<string>): string[] {
+  const rank = new Map<string, number>(
+    ABL_DIVISIONS.map((division, index) => [division.label, index])
+  );
+  return Array.from(new Set(labels)).sort((a, b) => {
+    const rankA = rank.get(a);
+    const rankB = rank.get(b);
+    if (rankA !== undefined && rankB !== undefined) return rankA - rankB;
+    if (rankA !== undefined) return -1;
+    if (rankB !== undefined) return 1;
+    return a.localeCompare(b, "ru");
+  });
+}

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Player } from "@/types/player";
 import { Slot, useFantasy } from "@/context/FantasyContext";
 import { MIN_PRICE, MAX_PRICE } from "@/lib/pricing";
+import { sortDivisionLabels } from "@/lib/abl/client";
 import TeamLogo from "@/components/ui/TeamLogo";
 import Badge from "@/components/ui/Badge";
 import { POSITION_COLORS } from "@/components/fantasy/PlayerCard";
@@ -52,7 +53,7 @@ export default function PlayerPickerModal({
     const divisions = players
       .map((p) => p.teams?.division)
       .filter((d): d is string => Boolean(d));
-    return Array.from(new Set(divisions)).sort();
+    return sortDivisionLabels(divisions);
   }, [players]);
 
   const teamOptions = useMemo(() => {
