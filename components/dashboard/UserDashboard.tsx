@@ -47,7 +47,8 @@ function useCountdown(targetIso: string | undefined): string | null {
 }
 
 export default function UserDashboard({ userId }: { userId: string }) {
-  const { round, spent, budget, isSquadLoading } = useFantasy();
+  const { round, spent, budget, isSquadLoading, hallId, isHallLoading } =
+    useFantasy();
   const countdown = useCountdown(round?.starts_at);
 
   const [tourNumber, setTourNumber] = useState<number | null>(null);
@@ -55,50 +56,74 @@ export default function UserDashboard({ userId }: { userId: string }) {
   const [previousRank, setPreviousRank] = useState<Rank | null>(null);
   const [overallRank, setOverallRank] = useState<Rank | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isHallLoading) return;
+
     async function load() {
       setIsLoadingStats(true);
+      setStatsError(null);
+      try {
+        // Места считаются внутри зала пользователя.
+        let hallUserIds: Set<string> | null = null;
+        if (hallId) {
+          const { data: hallProfiles, error: hallError } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("hall_id", hallId);
+          if (hallError) {
+            throw new Error(`Не удалось загрузить участников зала: ${hallError.message}`);
+          }
+          hallUserIds = new Set((hallProfiles ?? []).map((p) => p.id as string));
+        }
 
-      const allResults = await computeAllSquadResults();
-      const now = Date.now();
+        const allResults = (await computeAllSquadResults()).filter(
+          (r) => !hallUserIds || hallUserIds.has(r.userId)
+        );
+        const now = Date.now();
 
-      const myCompletedResults = allResults
-        .filter(
-          (r) => r.userId === userId && now >= new Date(r.weekEndsAt).getTime()
-        )
-        .sort((a, b) => (a.weekStartsAt < b.weekStartsAt ? 1 : -1));
+        const myCompletedResults = allResults
+          .filter(
+            (r) => r.userId === userId && now >= new Date(r.weekEndsAt).getTime()
+          )
+          .sort((a, b) => (a.weekStartsAt < b.weekStartsAt ? 1 : -1));
 
-      const myPrevious = myCompletedResults[0] ?? null;
-      setPreviousResult(myPrevious);
+        const myPrevious = myCompletedResults[0] ?? null;
+        setPreviousResult(myPrevious);
 
-      if (myPrevious) {
-        const sameWeekRanked = allResults
-          .filter((r) => r.weekId === myPrevious.weekId)
-          .sort((a, b) => b.totalPoints - a.totalPoints);
-        const place = sameWeekRanked.findIndex((r) => r.userId === userId) + 1;
-        setPreviousRank(place > 0 ? { place, total: sameWeekRanked.length } : null);
-      } else {
-        setPreviousRank(null);
+        if (myPrevious) {
+          const sameWeekRanked = allResults
+            .filter((r) => r.weekId === myPrevious.weekId)
+            .sort((a, b) => b.totalPoints - a.totalPoints);
+          const place = sameWeekRanked.findIndex((r) => r.userId === userId) + 1;
+          setPreviousRank(place > 0 ? { place, total: sameWeekRanked.length } : null);
+        } else {
+          setPreviousRank(null);
+        }
+
+        const totalsByUser = new Map<string, number>();
+        allResults.forEach((r) => {
+          totalsByUser.set(r.userId, (totalsByUser.get(r.userId) ?? 0) + r.totalPoints);
+        });
+        const overallRanked = Array.from(totalsByUser.entries()).sort(
+          (a, b) => b[1] - a[1]
+        );
+        const myIndex = overallRanked.findIndex(([id]) => id === userId);
+        setOverallRank(
+          myIndex >= 0 ? { place: myIndex + 1, total: overallRanked.length } : null
+        );
+      } catch (error) {
+        setStatsError(
+          error instanceof Error ? error.message : "Не удалось загрузить результаты."
+        );
+      } finally {
+        setIsLoadingStats(false);
       }
-
-      const totalsByUser = new Map<string, number>();
-      allResults.forEach((r) => {
-        totalsByUser.set(r.userId, (totalsByUser.get(r.userId) ?? 0) + r.totalPoints);
-      });
-      const overallRanked = Array.from(totalsByUser.entries()).sort(
-        (a, b) => b[1] - a[1]
-      );
-      const myIndex = overallRanked.findIndex(([id]) => id === userId);
-      setOverallRank(
-        myIndex >= 0 ? { place: myIndex + 1, total: overallRanked.length } : null
-      );
-
-      setIsLoadingStats(false);
     }
 
     load();
-  }, [userId]);
+  }, [userId, hallId, isHallLoading]);
 
   useEffect(() => {
     if (!round) {
@@ -157,7 +182,22 @@ export default function UserDashboard({ userId }: { userId: string }) {
         </Link>
       </div>
 
+      {!isHallLoading && !hallId && (
+        <div className="mb-6 border border-abl-200 rounded-xl p-4 bg-abl-50 text-abl-800 text-sm">
+          Вы ещё не выбрали зал.{" "}
+          <Link href="/team" className="font-semibold underline">
+            Выберите зал
+          </Link>
+          , чтобы собрать состав и попасть в рейтинг.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        {statsError && (
+          <p role="alert" className="text-red-600 sm:col-span-2">
+            Не удалось загрузить статистику: {statsError}
+          </p>
+        )}
         <div className="border rounded-xl p-6 bg-white shadow-sm">
           <h2 className="font-bold mb-3">Моя команда</h2>
           {isLoadingStats ? (
@@ -216,7 +256,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
         </div>
 
         <div className="border rounded-xl p-6 bg-white shadow-sm sm:col-span-2">
-          <h2 className="font-bold mb-3">📊 Моя позиция</h2>
+          <h2 className="font-bold mb-3">📊 Моя позиция в зале</h2>
           {isLoadingStats ? (
             <p className="text-gray-400">Загрузка...</p>
           ) : overallRank ? (

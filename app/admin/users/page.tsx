@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useUser } from "@/lib/useUser";
 import { supabase } from "@/lib/supabaseClient";
+import { useHalls } from "@/lib/useHalls";
 
 type AdminUser = {
   id: string;
@@ -10,10 +11,12 @@ type AdminUser = {
   email: string;
   is_admin: boolean;
   created_at: string;
+  hall_id: string | null;
 };
 
 export default function AdminUsersPage() {
   const { user } = useUser();
+  const { halls } = useHalls();
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
@@ -70,11 +73,32 @@ export default function AdminUsersPage() {
     );
   }
 
+  async function handleChangeHall(target: AdminUser, hallId: string) {
+    setPendingId(target.id);
+
+    const { error: rpcError } = await supabase.rpc("admin_set_user_hall", {
+      target_user_id: target.id,
+      new_hall_id: hallId || null,
+    });
+
+    setPendingId(null);
+
+    if (rpcError) {
+      alert(`Ошибка: ${rpcError.message}`);
+      return;
+    }
+
+    setUsers((current) =>
+      current.map((u) => (u.id === target.id ? { ...u, hall_id: hallId || null } : u))
+    );
+  }
+
   return (
     <div className="max-w-4xl">
       <h1 className="text-2xl font-bold mb-1">Пользователи</h1>
       <p className="text-gray-500 mb-8">
-        Здесь можно выдать или забрать права администратора.
+        Здесь можно выдать или забрать права администратора и сменить зал
+        игрока.
       </p>
 
       {loadingUsers ? (
@@ -89,6 +113,7 @@ export default function AdminUsersPage() {
                 <th className="p-3">Никнейм</th>
                 <th className="p-3">Email</th>
                 <th className="p-3">Зарегистрирован</th>
+                <th className="p-3">Зал</th>
                 <th className="p-3">Статус</th>
                 <th className="p-3"></th>
               </tr>
@@ -100,6 +125,21 @@ export default function AdminUsersPage() {
                   <td className="p-3 text-gray-500">{u.email}</td>
                   <td className="p-3 text-gray-500">
                     {new Date(u.created_at).toLocaleDateString("ru-RU")}
+                  </td>
+                  <td className="p-3">
+                    <select
+                      value={u.hall_id ?? ""}
+                      onChange={(e) => handleChangeHall(u, e.target.value)}
+                      disabled={pendingId === u.id}
+                      className="border rounded-lg px-2 py-1 text-sm disabled:opacity-50"
+                    >
+                      <option value="">Не выбран</option>
+                      {halls.map((hall) => (
+                        <option key={hall.id} value={hall.id}>
+                          {hall.name}
+                        </option>
+                      ))}
+                    </select>
                   </td>
                   <td className="p-3">
                     {u.is_admin ? (

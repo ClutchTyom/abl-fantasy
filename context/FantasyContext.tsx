@@ -38,7 +38,13 @@ type SquadPlayerRow = {
   player_id: string;
 };
 
-async function buildSquadFromRoster(squadId: string): Promise<Squad> {
+// Игроки не из зала пользователя отбрасываются: после перехода на залы в
+// старых/перенесённых составах могут остаться игроки из чужих дивизионов,
+// а база такие составы всё равно не сохранит.
+async function buildSquadFromRoster(
+  squadId: string,
+  hallId: string | null
+): Promise<Squad> {
   const { data: rosterRows, error: rosterError } = await supabase
     .from("fantasy_squad_players")
     .select("slot, is_captain, player_id")
@@ -58,7 +64,7 @@ async function buildSquadFromRoster(squadId: string): Promise<Squad> {
 
   const { data: playersData, error: playersError } = await supabase
     .from("players")
-    .select("*, teams(name, short_name, division, logo_url)")
+    .select("*, teams(name, short_name, division, logo_url, hall_id)")
     .in("id", playerIds);
 
   if (playersError) {
@@ -73,7 +79,9 @@ async function buildSquadFromRoster(squadId: string): Promise<Squad> {
 
   rows.forEach((row) => {
     const player = playersById.get(row.player_id);
-    if (player) nextSquad[row.slot] = player;
+    if (player && hallId && player.teams?.hall_id === hallId) {
+      nextSquad[row.slot] = player;
+    }
   });
 
   return nextSquad;
@@ -97,6 +105,9 @@ type FantasyContextType = {
   saveError: string | null;
   saveSuccess: boolean;
   saveSquad: () => Promise<void>;
+  hallId: string | null;
+  isHallLoading: boolean;
+  joinHall: (hallId: string) => Promise<string | null>;
 };
 
 const FantasyContext = createContext<FantasyContextType | undefined>(
@@ -118,6 +129,13 @@ export function FantasyProvider({
   const [isTimeLocked, setIsTimeLocked] = useState(false);
   const [isSquadLoading, setIsSquadLoading] = useState(true);
   const [isCarriedOver, setIsCarriedOver] = useState(false);
+  // Зал хранится вместе с id пользователя, для которого он загружен, —
+  // так "загрузка" выводится из сравнения, а не отдельным флагом, который
+  // пришлось бы синхронно выставлять внутри эффекта.
+  const [hallState, setHallState] = useState<{
+    userId: string;
+    hallId: string | null;
+  } | null>(null);
 
   // Состав заблокирован, если это выставил админ ИЛИ если время начала
   // тура (round.lock_at) уже прошло. Перепроверяем по таймеру, а не при
@@ -167,6 +185,44 @@ export function FantasyProvider({
   // бы состав с сервера, затирая ещё не сохранённых добавленных игроков.
   const userId = user?.id;
 
+  const isHallLoading = userLoading || (Boolean(userId) && hallState?.userId !== userId);
+  const hallId = hallState && hallState.userId === userId ? hallState.hallId : null;
+
+  // Зал игрока: выбирается один раз на сезон и определяет, из каких
+  // дивизионов можно брать игроков.
+  useEffect(() => {
+    if (userLoading || !userId) return;
+
+    let cancelled = false;
+
+    supabase
+      .from("profiles")
+      .select("hall_id")
+      .eq("id", userId)
+      .single()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) {
+          console.error(
+            `[FantasyContext] Не удалось загрузить зал: ${error.message}`
+          );
+        }
+        setHallState({ userId, hallId: data?.hall_id ?? null });
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, userLoading]);
+
+  // Возвращает текст ошибки или null, если зал выбран.
+  async function joinHall(nextHallId: string): Promise<string | null> {
+    const { error } = await supabase.rpc("join_hall", { p_hall_id: nextHallId });
+    if (error) return error.message;
+    if (userId) setHallState({ userId, hallId: nextHallId });
+    return null;
+  }
+
   useEffect(() => {
     let cancelled = false;
 
@@ -176,7 +232,7 @@ export function FantasyProvider({
       // useUser() параллельно (в этом же компоненте) ещё резолвится, и
       // именно в это окно можно успеть добавить игрока, который тут же
       // будет затёрт.
-      if (userLoading) return;
+      if (userLoading || isHallLoading) return;
 
       setIsSquadLoading(true);
       setSaveSuccess(false);
@@ -229,7 +285,7 @@ export function FantasyProvider({
       if (cancelled) return;
 
       if (existingSquad) {
-        const nextSquad = await buildSquadFromRoster(existingSquad.id);
+        const nextSquad = await buildSquadFromRoster(existingSquad.id, hallId);
         if (cancelled) return;
 
         setSquad(nextSquad);
@@ -280,7 +336,7 @@ export function FantasyProvider({
         return;
       }
 
-      const carriedSquad = await buildSquadFromRoster(previousSquad.id);
+      const carriedSquad = await buildSquadFromRoster(previousSquad.id, hallId);
       if (cancelled) return;
 
       setSquad(carriedSquad);
@@ -295,7 +351,7 @@ export function FantasyProvider({
     return () => {
       cancelled = true;
     };
-  }, [userId, userLoading]);
+  }, [userId, userLoading, hallId, isHallLoading]);
 
   // Точечное добавление/замена в КОНКРЕТНЫЙ слот (для пикера в /team —
   // клик по позиции). В отличие от addPlayer(), сам не выбирает слот, а
@@ -490,6 +546,9 @@ export function FantasyProvider({
         saveError,
         saveSuccess,
         saveSquad,
+        hallId,
+        isHallLoading,
+        joinHall,
       }}
     >
       {children}

@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import { useUser } from "@/lib/useUser";
 import { supabase } from "@/lib/supabaseClient";
 import { computeAllSquadResults } from "@/lib/squadPoints";
+import { useFantasy } from "@/context/FantasyContext";
+import { useHalls } from "@/lib/useHalls";
 
 type LeaderboardRow = {
   userId: string;
   username: string;
+  hallId: string | null;
   totalPoints: number;
   roundsPlayed: number;
 };
@@ -16,9 +19,15 @@ type LeaderboardRow = {
 export default function LeaderboardPage() {
   const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
+  const { hallId: myHallId } = useFantasy();
+  const { halls } = useHalls();
+  // null — вкладка ещё не выбрана вручную: по умолчанию показываем зал
+  // пользователя, а если зал не выбран — все залы.
+  const [selectedTab, setSelectedTab] = useState<string | null>(null);
 
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -29,51 +38,70 @@ export default function LeaderboardPage() {
   useEffect(() => {
     async function load() {
       setIsLoading(true);
+      setError(null);
+      try {
+        const results = await computeAllSquadResults();
 
-      const results = await computeAllSquadResults();
+        const totalsByUser = new Map<
+          string,
+          { totalPoints: number; roundsPlayed: number }
+        >();
 
-      const totalsByUser = new Map<
-        string,
-        { totalPoints: number; roundsPlayed: number }
-      >();
-
-      results.forEach((r) => {
-        const current = totalsByUser.get(r.userId) ?? {
-          totalPoints: 0,
-          roundsPlayed: 0,
-        };
-        current.totalPoints += r.totalPoints;
-        current.roundsPlayed += 1;
-        totalsByUser.set(r.userId, current);
-      });
-
-      const userIds = Array.from(totalsByUser.keys());
-
-      const { data: profiles } = userIds.length
-        ? await supabase.from("profiles").select("id, username").in("id", userIds)
-        : { data: [] };
-
-      const usernameById = new Map(
-        ((profiles ?? []) as { id: string; username: string }[]).map((p) => [
-          p.id,
-          p.username,
-        ])
-      );
-
-      const leaderboard = userIds
-        .map((userId) => {
-          const totals = totalsByUser.get(userId)!;
-          return {
-            userId,
-            username: usernameById.get(userId) ?? "Без имени",
-            totalPoints: totals.totalPoints,
-            roundsPlayed: totals.roundsPlayed,
+        results.forEach((r) => {
+          const current = totalsByUser.get(r.userId) ?? {
+            totalPoints: 0,
+            roundsPlayed: 0,
           };
-        })
-        .sort((a, b) => b.totalPoints - a.totalPoints);
+          current.totalPoints += r.totalPoints;
+          current.roundsPlayed += 1;
+          totalsByUser.set(r.userId, current);
+        });
 
-      setRows(leaderboard);
-      setIsLoading(false);
+        const userIds = Array.from(totalsByUser.keys());
+
+        const { data: profiles, error: profilesError } = userIds.length
+          ? await supabase
+              .from("profiles")
+              .select("id, username, hall_id")
+              .in("id", userIds)
+          : { data: [], error: null };
+        if (profilesError) {
+          throw new Error(`Не удалось загрузить профили: ${profilesError.message}`);
+        }
+
+        const profileById = new Map(
+          (
+            (profiles ?? []) as {
+              id: string;
+              username: string;
+              hall_id: string | null;
+            }[]
+          ).map((p) => [p.id, p])
+        );
+
+        const leaderboard = userIds
+          .map((userId) => {
+            const totals = totalsByUser.get(userId)!;
+            return {
+              userId,
+              username: profileById.get(userId)?.username ?? "Без имени",
+              hallId: profileById.get(userId)?.hall_id ?? null,
+              totalPoints: totals.totalPoints,
+              roundsPlayed: totals.roundsPlayed,
+            };
+          })
+          .sort((a, b) => b.totalPoints - a.totalPoints);
+
+        setRows(leaderboard);
+      } catch (loadError) {
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Не удалось загрузить рейтинг."
+        );
+      } finally {
+        setIsLoading(false);
+      }
     }
 
     load();
@@ -87,13 +115,41 @@ export default function LeaderboardPage() {
     return null;
   }
 
+  const activeTab = selectedTab ?? myHallId ?? "ALL";
+  const visibleRows =
+    activeTab === "ALL" ? rows : rows.filter((row) => row.hallId === activeTab);
+
   return (
     <main className="max-w-3xl mx-auto p-4 sm:p-8">
-      <h1 className="text-4xl font-bold mb-8">Общий рейтинг</h1>
+      <h1 className="text-4xl font-bold mb-6">Рейтинг</h1>
+
+      <div className="flex flex-wrap gap-2 mb-8" role="tablist">
+        {[{ id: "ALL", name: "Все залы" }, ...halls].map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={tab.id === activeTab}
+            onClick={() => setSelectedTab(tab.id)}
+            className={
+              tab.id === activeTab
+                ? "bg-abl-600 text-white font-semibold px-4 py-2 rounded-lg text-sm"
+                : "bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium px-4 py-2 rounded-lg text-sm transition"
+            }
+          >
+            {tab.name}
+            {tab.id === myHallId && " ★"}
+          </button>
+        ))}
+      </div>
 
       {isLoading ? (
         <p className="text-gray-500">Загрузка...</p>
-      ) : rows.length === 0 ? (
+      ) : error ? (
+        <p role="alert" className="text-red-600">
+          Не удалось загрузить рейтинг: {error}
+        </p>
+      ) : visibleRows.length === 0 ? (
         <p className="text-gray-500">
           Пока никто не набрал очков — рейтинг появится, когда завершится
           первый тур с сохранёнными составами.
@@ -110,7 +166,7 @@ export default function LeaderboardPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, index) => {
+              {visibleRows.map((row, index) => {
                 const place = index + 1;
                 const medal =
                   place === 1 ? "🥇" : place === 2 ? "🥈" : place === 3 ? "🥉" : null;

@@ -48,25 +48,54 @@ export async function ablGet<T>(path: string): Promise<T> {
   throw lastError!;
 }
 
-// Дивизионы на текущий сезон ABL (2026/2027 — проверено на ablforpeople.com
-// и напрямую через /league/2/tournaments/ в октябре 2026). Прошлый список
-// (restwblhigh, restwbllove, resthigh26, restlove26, resthard26, restbeef,
-// restslam, resteasy26, restdrop26, restflow) был под старый сезон — эти
-// турниры закончились и больше не возвращаются API, из старых "Rest*"
-// выжили только restrofl26/restlite26/restsoft26. По просьбе — взрослые
-// дивизионы, кроме Астаны и PLUS, плюс все возраста PYC (без PPC).
-export const ABL_DIVISIONS = [
-  { alias: "shelepiha27", label: "Шелепиха" },
-  { alias: "perovo27", label: "Перово" },
-  { alias: "mos", label: "Москвич" },
-  { alias: "profa", label: "Профа" },
-  { alias: "wblkval", label: "WBL (жен.)" },
-  { alias: "purekval", label: "PURE" },
-  { alias: "restrofl26", label: "Rest Rofl" },
-  { alias: "restlite26", label: "Rest Lite" },
-  { alias: "restsoft26", label: "Rest Soft" },
-  { alias: "kids10-11", label: "PYC U16" },
-  { alias: "kids12-13", label: "PYC U14" },
-  { alias: "kids14-15", label: "PYC U12" },
-  { alias: "kids16-17", label: "PYC U10" },
+// Дивизионы сезона 2026/2027, сгруппированные по залам (поле location у
+// турниров в API mtgame.ru). Квалификационные турниры (mos, profa,
+// shelepiha27, perovo27, wblkval, purekval) закончились и сюда не входят.
+// Зал нужен для рейтингов внутри зала и ограничения выбора игроков: slug
+// должен совпадать с halls.slug (см. миграцию 20261029_halls.sql).
+export const ABL_HALLS = [
+  { slug: "moskvich", name: "Москвич" },
+  { slug: "profa", name: "Профа" },
+  { slug: "shelepiha", name: "Шелепиха" },
+  { slug: "perovo", name: "Перово" },
+  { slug: "pure", name: "PURE" },
+  { slug: "wbl", name: "WBL" },
 ] as const;
+
+export type AblHallSlug = (typeof ABL_HALLS)[number]["slug"];
+
+export const ABL_DIVISIONS: readonly {
+  alias: string;
+  label: string;
+  hall: AblHallSlug;
+}[] = [
+  { alias: "hope26-27", label: "HOPE", hall: "moskvich" },
+  { alias: "lite26-27", label: "LITE", hall: "moskvich" },
+  { alias: "soft26-27", label: "SOFT", hall: "moskvich" },
+  { alias: "base26-27", label: "BASE", hall: "moskvich" },
+  { alias: "grow26-28", label: "GROW", hall: "moskvich" },
+
+  { alias: "pale26-27", label: "PALE", hall: "profa" },
+  { alias: "slow26-27", label: "SLOW", hall: "profa" },
+  { alias: "rook26-27", label: "ROOK", hall: "profa" },
+  { alias: "last26-27", label: "LAST", hall: "profa" },
+
+  { alias: "high26-27", label: "HIGH", hall: "shelepiha" },
+  { alias: "love26-27", label: "LOVE", hall: "shelepiha" },
+  { alias: "hard26-27", label: "HARD", hall: "shelepiha" },
+  { alias: "beef26-27", label: "BEEF", hall: "shelepiha" },
+
+  { alias: "slam26-27", label: "SLAM", hall: "perovo" },
+  { alias: "easy26-27", label: "EASY", hall: "perovo" },
+  { alias: "drop26-27", label: "DROP", hall: "perovo" },
+  { alias: "rofl26-27", label: "ROFL", hall: "perovo" },
+  { alias: "flow26-27", label: "FLOW", hall: "perovo" },
+
+  { alias: "purehigh26-27", label: "PURE HIGH", hall: "pure" },
+  { alias: "purelove26-27", label: "PURE LOVE", hall: "pure" },
+
+  { alias: "wblhigh26-27", label: "WBL HIGH", hall: "wbl" },
+  { alias: "wbllove26-27", label: "WBL LOVE", hall: "wbl" },
+  { alias: "wbleasy26-27", label: "WBL EASY", hall: "wbl" },
+  { alias: "wblrofl26-27", label: "WBL ROFL", hall: "wbl" },
+];

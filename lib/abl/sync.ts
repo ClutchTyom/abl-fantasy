@@ -224,6 +224,7 @@ export async function syncAblTournament(
       name: ablTeam.team.name,
       short_name: shortName,
       division: tournament.name,
+      hall_slug: ABL_DIVISIONS.find((d) => d.alias === alias)?.hall ?? null,
       logo_url: ablTeam.team.logo?.path ?? null,
     };
   });

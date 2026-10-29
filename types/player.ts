@@ -9,6 +9,7 @@ export type Player = {
     name: string;
     short_name: string;
     division: string | null;
+    hall_id: string | null;
     logo_url: string | null;
   } | null;
 };

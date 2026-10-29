@@ -11,6 +11,7 @@ import {
 import PlayerCard from "@/components/fantasy/PlayerCard";
 import PlayerPickerModal from "@/components/fantasy/PlayerPickerModal";
 import CourtView from "@/components/fantasy/CourtView";
+import HallSelector from "@/components/fantasy/HallSelector";
 import RoundResults from "@/components/fantasy/RoundResults";
 import { formatFantasyWeekName } from "@/lib/fantasyWeeks";
 import { useUser } from "@/lib/useUser";
@@ -18,6 +19,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { fetchAllRows } from "@/lib/fetchAll";
 import { Player } from "@/types/player";
+import { ABL_DIVISIONS } from "@/lib/abl/client";
+import { useHalls } from "@/lib/useHalls";
 
 const SLOT_LABELS: Record<Slot, string> = {
   PG: "Разыгрывающий (PG)",
@@ -82,7 +85,10 @@ export default function TeamPage() {
     saveError,
     saveSuccess,
     saveSquad,
+    hallId,
+    isHallLoading,
   } = useFantasy();
+  const { halls } = useHalls();
   const { user, isLoading } = useUser();
   const router = useRouter();
 
@@ -95,12 +101,18 @@ export default function TeamPage() {
     }
   }, [isLoading, user, router]);
 
+  // В пикер попадают только игроки дивизионов зала пользователя (inner join
+  // по teams.hall_id). Это удобство UI — жёсткое ограничение стоит в базе
+  // (триггер check_player_in_hall).
   useEffect(() => {
+    if (!hallId) return;
+
     async function loadPlayers() {
       const data = await fetchAllRows<Player>((from, to) =>
         supabase
           .from("players")
-          .select("*, teams(name, short_name, division, logo_url)")
+          .select("*, teams!inner(name, short_name, division, logo_url, hall_id)")
+          .eq("teams.hall_id", hallId)
           .order("price", { ascending: false })
           .range(from, to)
       );
@@ -108,11 +120,14 @@ export default function TeamPage() {
     }
 
     loadPlayers();
-  }, []);
+  }, [hallId]);
+
+  const hall = halls.find((h) => h.id === hallId);
+  const hallDivisions = ABL_DIVISIONS.filter((d) => d.hall === hall?.slug);
 
   const filledSlots = ALL_SLOTS.filter((slot) => squad[slot]).length;
 
-  if (isLoading || isSquadLoading) {
+  if (isLoading || isHallLoading || isSquadLoading) {
     return <p className="p-8">Загрузка...</p>;
   }
 
@@ -120,9 +135,20 @@ export default function TeamPage() {
     return null;
   }
 
+  if (!hallId) {
+    return <HallSelector />;
+  }
+
   return (
     <main className="max-w-6xl mx-auto p-4 sm:p-8">
-      <h1 className="text-4xl font-bold mb-8">Моя команда</h1>
+      <h1 className="text-4xl font-bold mb-2">Моя команда</h1>
+      {hall && (
+        <p className="text-gray-500 mb-8">
+          Зал {hall.name}
+          {hallDivisions.length > 0 &&
+            ` · ${hallDivisions.map((d) => d.label).join(", ")}`}
+        </p>
+      )}
 
       <RoundResults userId={user.id} />
 
