@@ -396,8 +396,9 @@ create policy "Users can modify own roster" on user_team_roster as permissive fo
 --   check_player_in_hall       20261029_halls.sql (check_player_in_hall — переопределена в 20261030_archive.sql)
 --   bulk_upsert_teams,
 --   bulk_upsert_players        20261030_archive.sql
---   admin_archive_stale,
 --   admin_restore_archive      20261030_archive.sql
+--   archive_stale (только service_role, для крона),
+--   admin_archive_stale (обёртка с проверкой админа)  20261102_archive_stale_for_cron.sql
 --   set_updated_at, check_single_captain, check_round_not_locked,
 --   check_squad_constraints    не заведены миграциями (созданы вручную); тела ниже.
 -- У всех функций search_path = public. EXECUTE у admin_*/join_hall закрыт
