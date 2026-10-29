@@ -12,9 +12,8 @@
 --   * rounds / matches.round_id — календарь матчей ABL (туры ABL);
 --   * fantasy_weeks / fantasy_squads.round_id — недели игры (на самом деле
 --     fantasy_squads.round_id ссылается на fantasy_weeks, не на rounds);
---   * user_teams, user_team_roster — старая модель состава, в коде не
---     используется (в user_team_roster player_id integer не совпадает с
---     players.id uuid). Кандидаты на удаление.
+--   * user_teams и user_team_roster (старая модель состава) удалены миграцией
+--     20261103_drop_legacy_user_teams.sql.
 
 set search_path = public;
 
@@ -149,26 +148,6 @@ create table sync_runs (
   warnings integer not null
 );
 
--- Устаревшая модель состава (не используется приложением).
-create table user_teams (
-  id uuid not null default gen_random_uuid(),
-  user_id uuid not null,
-  round_id uuid not null,
-  budget integer not null default 100,
-  spent integer not null default 0,
-  is_locked boolean default false,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-
-create table user_team_roster (
-  id uuid not null default gen_random_uuid(),
-  user_team_id uuid not null,
-  player_id integer not null,
-  slot_type text not null,
-  is_captain boolean default false
-);
-
 -- ==================== Ограничения ====================
 
 alter table halls add constraint halls_pkey primary key (id);
@@ -227,31 +206,14 @@ alter table fantasy_squad_players add constraint fantasy_squad_players_substitut
 
 alter table sync_runs add constraint sync_runs_pkey primary key (id);
 
-alter table user_teams add constraint user_teams_pkey primary key (id);
-alter table user_teams add constraint user_teams_user_id_round_id_key unique (user_id, round_id);
-alter table user_teams add constraint user_teams_budget_check check (budget = 100);
-alter table user_teams add constraint user_teams_spent_check check (spent >= 0 and spent <= 100);
-alter table user_teams add constraint user_teams_round_id_fkey foreign key (round_id) references rounds(id) on delete cascade;
-alter table user_teams add constraint user_teams_user_id_fkey foreign key (user_id) references auth.users(id) on delete cascade;
-
-alter table user_team_roster add constraint user_team_roster_pkey primary key (id);
-alter table user_team_roster add constraint user_team_roster_user_team_id_player_id_key unique (user_team_id, player_id);
-alter table user_team_roster add constraint user_team_roster_user_team_id_slot_type_key unique (user_team_id, slot_type);
-alter table user_team_roster add constraint user_team_roster_slot_type_check
-  check (slot_type = any (array['STARTER_PG','STARTER_SG','STARTER_SF','STARTER_PF','STARTER_C','BENCH_1','BENCH_2']));
-alter table user_team_roster add constraint user_team_roster_user_team_id_fkey foreign key (user_team_id) references user_teams(id) on delete cascade;
-
 -- ==================== Индексы ====================
 
 create index idx_matches_round on matches using btree (round_id);
 create index idx_players_position on players using btree (position);
 create index idx_players_team on players using btree (team_id);
-create index idx_roster_player on user_team_roster using btree (player_id);
-create index idx_roster_user_team on user_team_roster using btree (user_team_id);
 create index idx_squad_players_player on fantasy_squad_players using btree (player_id);
 create index idx_squad_players_squad on fantasy_squad_players using btree (squad_id);
 create index idx_squads_round on fantasy_squads using btree (round_id);
-create index idx_user_teams_user_round on user_teams using btree (user_id, round_id);
 create index player_match_stats_match_id_idx on player_match_stats using btree (match_id);
 create index player_match_stats_player_id_idx on player_match_stats using btree (player_id);
 create index profiles_hall_id_idx on profiles using btree (hall_id);
@@ -274,8 +236,6 @@ alter table profiles enable row level security;
 alter table rounds enable row level security;
 alter table sync_runs enable row level security;
 alter table teams enable row level security;
-alter table user_team_roster enable row level security;
-alter table user_teams enable row level security;
 
 -- Общий предикат "текущий пользователь — админ":
 --   exists (select 1 from profiles where profiles.id = auth.uid() and profiles.is_admin)
@@ -376,15 +336,6 @@ create policy "sync_runs_select_admin" on sync_runs as permissive for select to 
   using (exists (select 1 from profiles where profiles.id = auth.uid() and profiles.is_admin));
 create policy "sync_runs_insert_admin" on sync_runs as permissive for insert to authenticated
   with check (exists (select 1 from profiles where profiles.id = auth.uid() and profiles.is_admin));
-
--- --- устаревшие user_teams / user_team_roster
-create policy "Users can view own teams" on user_teams as permissive for select to authenticated using (auth.uid() = user_id);
-create policy "Users can insert own teams" on user_teams as permissive for insert to authenticated with check (auth.uid() = user_id);
-create policy "Users can update own teams" on user_teams as permissive for update to authenticated using (auth.uid() = user_id);
-create policy "Users can view own roster" on user_team_roster as permissive for select to authenticated
-  using (exists (select 1 from user_teams where user_teams.id = user_team_roster.user_team_id and user_teams.user_id = auth.uid()));
-create policy "Users can modify own roster" on user_team_roster as permissive for all to authenticated
-  using (exists (select 1 from user_teams where user_teams.id = user_team_roster.user_team_id and user_teams.user_id = auth.uid()));
 
 -- ==================== Функции ====================
 -- Тела функций хранятся в миграциях, где они были созданы в последний раз:
