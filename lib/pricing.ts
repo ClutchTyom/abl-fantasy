@@ -61,14 +61,49 @@ export function assignPrices(
   return prices;
 }
 
+export type PriceDistribution = { price: number; count: number }[];
+
+export type HallPriceSummary = {
+  hallName: string;
+  players: number;
+  eligiblePlayers: number;
+  priceDistribution: PriceDistribution;
+};
+
 export type PriceRecalcSummary = {
   playersUpdated: number;
   eligiblePlayers: number;
-  priceDistribution: { price: number; count: number }[];
+  priceDistribution: PriceDistribution;
+  halls: HallPriceSummary[];
 };
 
+// Игроки без зала (например, созданные вручную) считаются отдельной
+// группой со своими квотами.
+const NO_HALL_KEY = "none";
+
+// PostgREST отдаёт связь many-to-one объектом, но без сгенерированных типов
+// supabase-js выводит её массивом — поддерживаем оба варианта.
+type HallRef = { hall_id: string | null };
+type PlayerRow = { id: string; teams: HallRef | HallRef[] | null };
+
+function hallIdOf(player: PlayerRow): string | null {
+  const team = Array.isArray(player.teams) ? player.teams[0] : player.teams;
+  return team?.hall_id ?? null;
+}
+
+function distributionOf(prices: Iterable<number>): PriceDistribution {
+  const counts = new Map<number, number>();
+  for (const price of prices) {
+    counts.set(price, (counts.get(price) ?? 0) + 1);
+  }
+  return Array.from(counts.entries())
+    .map(([price, count]) => ({ price, count }))
+    .sort((a, b) => b.price - a.price);
+}
+
 export async function recalculatePlayerPrices(): Promise<PriceRecalcSummary> {
-  let players: { id: string }[];
+  let players: PlayerRow[];
+  let halls: { id: string; name: string }[];
   let statsRows: Pick<
     PlayerMatchStats,
     | "player_id"
@@ -89,9 +124,20 @@ export async function recalculatePlayerPrices(): Promise<PriceRecalcSummary> {
     // Архивные игроки (прошлые сезоны) в расчёте не участвуют: иначе квоты
     // цен делились бы и на них, и у нынешних игроков распределение цен
     // было бы смещено вниз. Их цены остаются прежними.
-    players = await fetchAllRows<{ id: string }>((from, to) =>
-      supabase.from("players").select("id").is("archived_at", null).range(from, to)
+    players = await fetchAllRows<PlayerRow>((from, to) =>
+      supabase
+        .from("players")
+        .select("id, teams(hall_id)")
+        .is("archived_at", null)
+        .range(from, to)
     );
+
+    const { data: hallsData, error: hallsError } = await supabase
+      .from("halls")
+      .select("id, name")
+      .order("sort");
+    if (hallsError) throw new Error(hallsError.message);
+    halls = hallsData ?? [];
 
     statsRows = await fetchAllRows((from, to) =>
       supabase
@@ -130,16 +176,43 @@ export async function recalculatePlayerPrices(): Promise<PriceRecalcSummary> {
     totalsByPlayer.set(row.player_id, current);
   });
 
-  const performances: PlayerPerformance[] = players.map((player) => {
+  // Цена зависит от места игрока среди игроков СВОЕГО зала: в каждом зале
+  // свой рынок со своими квотами (сколько игроков по 17, 16 и т.д.), потому
+  // что рейтинг и состав тоже считаются внутри зала.
+  const performancesByHall = new Map<string, PlayerPerformance[]>();
+
+  players.forEach((player) => {
     const totals = totalsByPlayer.get(player.id);
-    return {
+    const key = hallIdOf(player) ?? NO_HALL_KEY;
+    const group = performancesByHall.get(key) ?? [];
+    group.push({
       playerId: player.id,
       games: totals?.games ?? 0,
       avgFantasyPoints: totals ? totals.points / totals.games : 0,
-    };
+    });
+    performancesByHall.set(key, group);
   });
 
-  const prices = assignPrices(performances);
+  const prices = new Map<string, number>();
+  const hallSummaries: HallPriceSummary[] = [];
+
+  const hallOrder = [...halls.map((h) => h.id), NO_HALL_KEY];
+  for (const key of hallOrder) {
+    const group = performancesByHall.get(key);
+    if (!group) continue;
+
+    const hallPrices = assignPrices(group);
+    hallPrices.forEach((price, playerId) => prices.set(playerId, price));
+
+    hallSummaries.push({
+      hallName: halls.find((h) => h.id === key)?.name ?? "Без зала",
+      players: group.length,
+      eligiblePlayers: group.filter((p) => p.games >= MIN_GAMES_FOR_TIER).length,
+      priceDistribution: distributionOf(hallPrices.values()),
+    });
+  }
+
+  const performances = Array.from(performancesByHall.values()).flat();
 
   const rows = Array.from(prices.entries()).map(([id, price]) => ({ id, price }));
 
@@ -162,18 +235,12 @@ export async function recalculatePlayerPrices(): Promise<PriceRecalcSummary> {
     }
   }
 
-  const distributionMap = new Map<number, number>();
-  prices.forEach((price) => {
-    distributionMap.set(price, (distributionMap.get(price) ?? 0) + 1);
-  });
-
-  const priceDistribution = Array.from(distributionMap.entries())
-    .map(([price, count]) => ({ price, count }))
-    .sort((a, b) => b.price - a.price);
+  const priceDistribution = distributionOf(prices.values());
 
   return {
     playersUpdated: rows.length,
     eligiblePlayers: performances.filter((p) => p.games >= MIN_GAMES_FOR_TIER).length,
     priceDistribution,
+    halls: hallSummaries,
   };
 }

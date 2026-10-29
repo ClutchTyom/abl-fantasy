@@ -35,7 +35,8 @@ export default function AdminPricingPage() {
         игроки получают максимум, а игроки без статистики или сыгравшие
         меньше {MIN_GAMES_FOR_TIER} матчей — минимум (6). Архивные игроки не учитываются. Ручные правки цены
         в этом списке не хранятся отдельно — повторный пересчёт заменит их
-        актуальными значениями.
+        актуальными значениями. Квоты по ценам считаются отдельно в каждом зале.
+        Цена игрока зависит от его места среди игроков своего зала.
       </p>
 
       <div className="border rounded-xl p-6 bg-white shadow-sm mb-6">
@@ -70,15 +71,34 @@ export default function AdminPricingPage() {
             </div>
           </div>
 
-          <h3 className="font-semibold mb-2">Распределение по ценам</h3>
-          <ul className="text-sm divide-y">
-            {summary.priceDistribution.map((row) => (
-              <li key={row.price} className="py-1.5 flex justify-between">
-                <span>Цена {row.price}</span>
-                <span className="font-medium">{row.count} игроков</span>
-              </li>
-            ))}
-          </ul>
+          <h3 className="font-semibold mb-3">Распределение по залам</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="border-b text-gray-500">
+                <tr>
+                  <th className="py-2 pr-3">Зал</th>
+                  <th className="py-2 pr-3">Игроков</th>
+                  <th className="py-2">Цена × количество</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.halls.map((hall) => (
+                  <tr key={hall.hallName} className="border-b last:border-0 align-top">
+                    <td className="py-2 pr-3 font-medium">{hall.hallName}</td>
+                    <td className="py-2 pr-3">
+                      {hall.players}{" "}
+                      <span className="text-gray-400">({hall.eligiblePlayers} с порогом)</span>
+                    </td>
+                    <td className="py-2 text-gray-600">
+                      {hall.priceDistribution
+                        .map((row) => `${row.price}×${row.count}`)
+                        .join("  ")}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
