@@ -1,3 +1,7 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = { title: "Политика конфиденциальности" };
+
 export default function PrivacyPage() {
   return (
     <main className="max-w-3xl mx-auto p-4 sm:p-8">

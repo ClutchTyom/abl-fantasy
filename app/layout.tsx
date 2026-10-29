@@ -16,8 +16,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ABL Fantasy",
-  description: "Fantasy-лига ABL",
+  title: { default: "ABL Fantasy", template: "%s — ABL Fantasy" },
+  description:
+    "Fantasy-лига по баскетболу ABL: соберите состав из 10 игроков, выберите капитана и соревнуйтесь в рейтинге.",
+  openGraph: {
+    type: "website",
+    locale: "ru_RU",
+    siteName: "ABL Fantasy",
+    title: "ABL Fantasy",
+    description: "Fantasy-лига по баскетболу ABL",
+  },
 };
 
 export default function RootLayout({

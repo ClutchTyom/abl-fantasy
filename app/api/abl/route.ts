@@ -8,12 +8,24 @@ const ABL_BASE_URL = "https://mtgame.ru/api/v1";
 // браузера, поэтому проксируем через собственный сервер: серверный fetch
 // никаких CORS-ограничений не имеет, а браузер обращается уже к своему же
 // домену.
+//
+// Прокси не должен быть открытым: пускаем только те пути, которые реально
+// запрашивает lib/abl/sync.ts. Это же отсекает "../" и любые другие
+// эндпоинты mtgame.ru.
+const ALLOWED_PATHS = [
+  /^\/league\/\d+\/tournaments\/[\w-]+\/$/,
+  /^\/tournament\/\d+\/(teams|games)\/$/,
+  /^\/tournament_team\/\d+\/users\/$/,
+  /^\/tournament_game\/\d+\/users\/$/,
+  /^\/tournament_basketball_game\/\d+\/user_statistic\/$/,
+];
+
 export async function GET(request: NextRequest) {
   const path = request.nextUrl.searchParams.get("path");
 
-  if (!path || !path.startsWith("/")) {
+  if (!path || !ALLOWED_PATHS.some((pattern) => pattern.test(path))) {
     return NextResponse.json(
-      { error: "Query param 'path' is required and must start with /" },
+      { error: "Query param 'path' is missing or not allowed" },
       { status: 400 }
     );
   }

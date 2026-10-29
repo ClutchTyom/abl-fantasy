@@ -1,4 +1,10 @@
+import type { Metadata } from "next";
 import SectionTitle from "@/components/ui/SectionTitle";
+
+export const metadata: Metadata = {
+  title: "Правила",
+  description: "Правила ABL Fantasy: бюджет, состав, капитан и начисление очков.",
+};
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
