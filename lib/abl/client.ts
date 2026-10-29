@@ -19,6 +19,16 @@ function sleep(ms: number): Promise<void> {
 // на нашей стороне и обычно проходит само, поэтому 5xx перезапрашиваем
 // с задержкой перед тем как сдаться. 4xx (не наша вина чинить повтором) и
 // сетевые/парсинг-ошибки — сразу наружу.
+// Прокси доступен только вошедшим админам, поэтому в браузере к запросу
+// добавляется токен текущей сессии Supabase. Клиент подгружается лениво,
+// чтобы серверный код (крон) не тянул браузерный клиент.
+async function proxyAuthHeaders(): Promise<Record<string, string>> {
+  const { supabase } = await import("@/lib/supabaseClient");
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function ablGet<T>(path: string): Promise<T> {
   const isServer = typeof window === "undefined";
   const url = isServer
@@ -29,7 +39,10 @@ export async function ablGet<T>(path: string): Promise<T> {
 
   for (let attempt = 1; attempt <= RETRY_ATTEMPTS; attempt++) {
     const res = await fetch(url, {
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        ...(isServer ? {} : await proxyAuthHeaders()),
+      },
     });
 
     if (res.ok) {

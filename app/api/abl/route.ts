@@ -1,4 +1,6 @@
+import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import { isAllowedAblPath } from "@/lib/abl/allowedPaths";
 
 const ABL_BASE_URL = "https://mtgame.ru/api/v1";
 
@@ -9,21 +11,44 @@ const ABL_BASE_URL = "https://mtgame.ru/api/v1";
 // никаких CORS-ограничений не имеет, а браузер обращается уже к своему же
 // домену.
 //
-// Прокси не должен быть открытым: пускаем только те пути, которые реально
-// запрашивает lib/abl/sync.ts. Это же отсекает "../" и любые другие
-// эндпоинты mtgame.ru.
-const ALLOWED_PATHS = [
-  /^\/league\/\d+\/tournaments\/[\w-]+\/$/,
-  /^\/tournament\/\d+\/(teams|games)\/$/,
-  /^\/tournament_team\/\d+\/users\/$/,
-  /^\/tournament_game\/\d+\/users\/$/,
-  /^\/tournament_basketball_game\/\d+\/user_statistic\/$/,
-];
+// Прокси не должен быть открытым: им пользуется только админский импорт,
+// поэтому пускаем лишь вошедших админов (Bearer-токен сессии Supabase) и
+// только разрешённые пути (см. lib/abl/allowedPaths.ts).
+async function isAdminRequest(request: NextRequest): Promise<boolean> {
+  const accessToken = request.headers
+    .get("authorization")
+    ?.match(/^Bearer (.+)$/i)?.[1];
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!accessToken || !supabaseUrl || !anonKey) return false;
+
+  // Клиент работает от имени пользователя, так что is_admin читается через
+  // обычный RLS — service role для этого не нужен.
+  const client = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { data: authData, error: authError } = await client.auth.getUser(accessToken);
+  if (authError || !authData.user) return false;
+
+  const { data: profile } = await client
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", authData.user.id)
+    .maybeSingle();
+
+  return profile?.is_admin === true;
+}
 
 export async function GET(request: NextRequest) {
+  if (!(await isAdminRequest(request))) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const path = request.nextUrl.searchParams.get("path");
 
-  if (!path || !ALLOWED_PATHS.some((pattern) => pattern.test(path))) {
+  if (!isAllowedAblPath(path)) {
     return NextResponse.json(
       { error: "Query param 'path' is missing or not allowed" },
       { status: 400 }
