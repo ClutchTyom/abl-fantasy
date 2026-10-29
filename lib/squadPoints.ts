@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabaseClient";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { calculateFantasyPoints } from "@/lib/fantasyPoints";
 import { fetchAllRows } from "@/lib/fetchAll";
 import { StatLine } from "@/types/playerMatchStats";
@@ -38,10 +39,16 @@ type SquadRow = {
 // резолвится (у fantasy_squad_players нет нужного foreign key для
 // автосвязи), поэтому игроки собираются отдельным запросом и объединяются
 // на клиенте.
-export async function computeAllSquadResults(): Promise<SquadResult[]> {
-  const { data: squads } = await supabase
+export async function computeAllSquadResults(
+  client: SupabaseClient = supabase
+): Promise<SquadResult[]> {
+  const { data: squads, error: squadsError } = await client
     .from("fantasy_squads")
     .select("id, user_id, round_id, fantasy_weeks(starts_at, ends_at)");
+
+  if (squadsError) {
+    throw new Error(`Не удалось загрузить составы: ${squadsError.message}`);
+  }
 
   const now = Date.now();
 
@@ -53,24 +60,33 @@ export async function computeAllSquadResults(): Promise<SquadResult[]> {
 
   const squadIds = relevantSquads.map((s) => s.id);
 
-  const { data: squadPlayers } = await supabase
+  const { data: squadPlayers, error: squadPlayersError } = await client
     .from("fantasy_squad_players")
     .select("squad_id, player_id, is_captain")
     .in("squad_id", squadIds);
+
+  if (squadPlayersError) {
+    throw new Error(`Не удалось загрузить игроков составов: ${squadPlayersError.message}`);
+  }
 
   const playerIds = Array.from(
     new Set((squadPlayers ?? []).map((row) => row.player_id))
   );
 
-  const { data: playersData } = playerIds.length
-    ? await supabase.from("players").select("id, full_name").in("id", playerIds)
-    : { data: [] };
+  let playersData: { id: string; full_name: string }[] = [];
+  if (playerIds.length) {
+    const { data, error } = await client
+      .from("players")
+      .select("id, full_name")
+      .in("id", playerIds);
+    if (error) {
+      throw new Error(`Не удалось загрузить игроков: ${error.message}`);
+    }
+    playersData = (data ?? []) as { id: string; full_name: string }[];
+  }
 
   const playerNameById = new Map(
-    ((playersData ?? []) as { id: string; full_name: string }[]).map((p) => [
-      p.id,
-      p.full_name,
-    ])
+    playersData.map((p) => [p.id, p.full_name])
   );
 
   // Уникальные недели среди relevantSquads (много пользователей могут
@@ -91,7 +107,7 @@ export async function computeAllSquadResults(): Promise<SquadResult[]> {
   );
 
   const matches = await fetchAllRows<{ id: string; starts_at: string }>((from, to) =>
-    supabase
+    client
       .from("matches")
       .select("id, starts_at")
       .gte("starts_at", overallStart)
@@ -103,7 +119,7 @@ export async function computeAllSquadResults(): Promise<SquadResult[]> {
 
   const statsRows = matchIds.length
     ? await fetchAllRows<{ match_id: string; player_id: string } & StatLine>((from, to) =>
-        supabase.from("player_match_stats").select("*").in("match_id", matchIds).range(from, to)
+        client.from("player_match_stats").select("*").in("match_id", matchIds).range(from, to)
       )
     : [];
 
