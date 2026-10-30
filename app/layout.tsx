@@ -4,6 +4,7 @@ import "./globals.css";
 import { FantasyProvider } from "@/context/FantasyContext";
 import Nav from "@/components/layout/Nav";
 import Footer from "@/components/layout/Footer";
+import { SITE_URL } from "@/lib/siteUrl";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: { default: "ABL Fantasy", template: "%s — ABL Fantasy" },
   description:
     "Fantasy-лига по баскетболу ABL: соберите состав из 10 игроков, выберите капитана и соревнуйтесь в рейтинге.",

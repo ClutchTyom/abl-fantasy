@@ -1,40 +1,46 @@
-<<<<<<< HEAD
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ABL Fantasy
 
-## Getting Started
+Fantasy-лига по баскетболу [ABL](https://abl-fantasy.vercel.app/): соберите состав из 10 игроков (5 стартовых + 5 запасных), назначьте капитана и соревнуйтесь в рейтинге. Очки начисляются по реальной статистике матчей Amateur Basketball League.
 
-First, run the development server:
+## Стек
+
+- Next.js 16 (App Router), React 19, Tailwind CSS 4
+- Supabase (Postgres, Auth, RLS)
+- Vercel (деплой и Cron: еженедельная синхронизация с ABL, Telegram-уведомления)
+- Vitest — тесты очков, цен и фэнтези-недель
+
+## Запуск
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Нужен файл `.env.local`:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+CRON_SECRET=
+NEXT_PUBLIC_SITE_URL=https://abl-fantasy.vercel.app
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Переменные Telegram-бота описаны в [TELEGRAM_SETUP.md](TELEGRAM_SETUP.md).
 
-## Learn More
+## Скрипты
 
-To learn more about Next.js, take a look at the following resources:
+| Команда | Что делает |
+|---|---|
+| `npm run dev` | dev-сервер |
+| `npm run build` | production-сборка |
+| `npm run lint` | ESLint |
+| `npm test` | Vitest |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## База данных
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Миграции лежат в `supabase/migrations/`, актуальный снимок схемы — `supabase/schema_snapshot.sql`.
 
-## Deploy on Vercel
+## Лицензия
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-=======
-# ABL-Fantasy
->>>>>>> b0082f0655372325167681c134f9d1cafb48c74b
+См. [LICENSE](LICENSE).
