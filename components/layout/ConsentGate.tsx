@@ -91,7 +91,7 @@ export default function ConsentGate() {
             политике конфиденциальности
           </Link>{" "}
           (редакция от {PRIVACY_POLICY_VERSION_LABEL}). Согласие можно отозвать,
-          написав администрации сайта.
+          написав на bloodybattle777@gmail.com.
         </p>
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
