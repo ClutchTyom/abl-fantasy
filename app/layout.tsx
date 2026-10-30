@@ -4,6 +4,7 @@ import "./globals.css";
 import { FantasyProvider } from "@/context/FantasyContext";
 import Nav from "@/components/layout/Nav";
 import Footer from "@/components/layout/Footer";
+import ConsentGate from "@/components/layout/ConsentGate";
 import TelegramMiniApp from "@/components/layout/TelegramMiniApp";
 import { SITE_URL } from "@/lib/siteUrl";
 
@@ -47,6 +48,7 @@ export default function RootLayout({
           <Nav />
           <div className="flex-1">{children}</div>
           <Footer />
+          <ConsentGate />
         </FantasyProvider>
       </body>
     </html>
