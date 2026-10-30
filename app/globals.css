@@ -36,3 +36,8 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Telegram Mini App: отступы под вырезы и нижнюю панель */
+.tg-mini-app body {
+  padding-bottom: env(safe-area-inset-bottom);
+}

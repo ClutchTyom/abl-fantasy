@@ -4,6 +4,7 @@ import "./globals.css";
 import { FantasyProvider } from "@/context/FantasyContext";
 import Nav from "@/components/layout/Nav";
 import Footer from "@/components/layout/Footer";
+import TelegramMiniApp from "@/components/layout/TelegramMiniApp";
 import { SITE_URL } from "@/lib/siteUrl";
 
 const geistSans = Geist({
@@ -41,6 +42,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <TelegramMiniApp />
         <FantasyProvider>
           <Nav />
           <div className="flex-1">{children}</div>
