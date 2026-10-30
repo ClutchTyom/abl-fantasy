@@ -1,6 +1,11 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { verifyTelegramInitData } from "@/lib/telegramInitData";
+import {
+  telegramNickname,
+  telegramTechnicalEmail,
+  verifyTelegramInitData,
+  withTelegramIdSuffix,
+} from "@/lib/telegramInitData";
 
 const FAKE_TOKEN = "123456:fake-test-token";
 const NOW = 1_700_000_000;
@@ -44,5 +49,23 @@ describe("verifyTelegramInitData", () => {
 
   it("отклоняет данные без hash", () => {
     expect(verifyTelegramInitData("auth_date=1", FAKE_TOKEN, 86400, NOW)).toBeNull();
+  });
+});
+
+describe("telegram account helpers", () => {
+  it("берёт username, иначе имя, иначе запасной ник", () => {
+    expect(telegramNickname({ id: 1, username: "tester", first_name: "Иван" })).toBe("tester");
+    expect(telegramNickname({ id: 1, first_name: "Иван" })).toBe("Иван");
+    expect(telegramNickname({ id: 1 })).toBe("Игрок");
+  });
+
+  it("вычищает опасные символы и режет длину", () => {
+    expect(telegramNickname({ id: 1, first_name: "<b>Ivan</b>" })).toBe("bIvanb");
+    expect(telegramNickname({ id: 1, first_name: "x".repeat(60) })).toHaveLength(24);
+  });
+
+  it("делает уникальный ник и технический email", () => {
+    expect(withTelegramIdSuffix("Иван", 42)).toBe("Иван_42");
+    expect(telegramTechnicalEmail(42)).toBe("tg_42@telegram-users.abl-fantasy.vercel.app");
   });
 });
