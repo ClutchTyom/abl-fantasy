@@ -19,6 +19,7 @@ export default function ConsentGate() {
   const pathname = usePathname();
   const [needsConsent, setNeedsConsent] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [agreedToRating, setAgreedToRating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,7 +53,11 @@ export default function ConsentGate() {
     setIsSaving(true);
     const { error: updateError } = await supabase
       .from("profiles")
-      .update({ privacy_consent_at: new Date().toISOString() })
+      .update({
+        privacy_consent_at: new Date().toISOString(),
+        // Отдельное необязательное согласие на показ ника в рейтинге.
+        ...(agreedToRating ? { rating_consent_at: new Date().toISOString() } : {}),
+      })
       .eq("id", user.id);
     setIsSaving(false);
 
@@ -93,6 +98,19 @@ export default function ConsentGate() {
           (редакция от {PRIVACY_POLICY_VERSION_LABEL}). Согласие можно отозвать,
           написав на bloodybattle777@gmail.com.
         </p>
+
+        <label className="mt-4 flex items-start gap-2 text-sm text-gray-700">
+          <input
+            type="checkbox"
+            checked={agreedToRating}
+            onChange={(e) => setAgreedToRating(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            Разрешаю показывать мой никнейм, очки и место в общем рейтинге
+            (необязательно; иначе вы будете «Скрытым игроком»).
+          </span>
+        </label>
 
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 

@@ -7,6 +7,8 @@ import { supabase } from "@/lib/supabaseClient";
 import { computeAllSquadResults } from "@/lib/squadPoints";
 import { useFantasy } from "@/context/FantasyContext";
 import { useHalls } from "@/lib/useHalls";
+import { publicDisplayName } from "@/lib/ratingConsent";
+import { useRatingConsent } from "@/lib/useRatingConsent";
 
 type LeaderboardRow = {
   userId: string;
@@ -21,6 +23,7 @@ export default function LeaderboardPage() {
   const router = useRouter();
   const { hallId: myHallId } = useFantasy();
   const { halls } = useHalls();
+  const ratingConsent = useRatingConsent();
   // null — вкладка ещё не выбрана вручную: по умолчанию показываем зал
   // пользователя, а если зал не выбран — все залы.
   const [selectedTab, setSelectedTab] = useState<string | null>(null);
@@ -60,10 +63,7 @@ export default function LeaderboardPage() {
         const userIds = Array.from(totalsByUser.keys());
 
         const { data: profiles, error: profilesError } = userIds.length
-          ? await supabase
-              .from("profiles")
-              .select("id, username, hall_id")
-              .in("id", userIds)
+          ? await supabase.rpc("public_profiles", { p_ids: userIds })
           : { data: [], error: null };
         if (profilesError) {
           throw new Error(`Не удалось загрузить профили: ${profilesError.message}`);
@@ -73,7 +73,7 @@ export default function LeaderboardPage() {
           (
             (profiles ?? []) as {
               id: string;
-              username: string;
+              display_name: string | null;
               hall_id: string | null;
             }[]
           ).map((p) => [p.id, p])
@@ -84,7 +84,12 @@ export default function LeaderboardPage() {
             const totals = totalsByUser.get(userId)!;
             return {
               userId,
-              username: profileById.get(userId)?.username ?? "Без имени",
+              // display_name приходит null, если участник не дал отдельного
+              // согласия на распространение ника (раздел 4 политики).
+              username: publicDisplayName(
+                profileById.get(userId)?.display_name,
+                Boolean(profileById.get(userId)?.display_name)
+              ),
               hallId: profileById.get(userId)?.hall_id ?? null,
               totalPoints: totals.totalPoints,
               roundsPlayed: totals.roundsPlayed,
@@ -122,6 +127,23 @@ export default function LeaderboardPage() {
   return (
     <main className="max-w-3xl mx-auto p-4 sm:p-8">
       <h1 className="text-4xl font-bold mb-6">Рейтинг</h1>
+
+      {ratingConsent.hasConsent === false && (
+        <div className="mb-6 border border-abl-200 rounded-xl p-4 bg-abl-50 text-abl-800 text-sm flex flex-wrap items-center justify-between gap-3">
+          <span>
+            Вы показаны в рейтинге как «Скрытый игрок». Разрешите показ
+            никнейма, очков и места, чтобы другие видели ваше имя.
+          </span>
+          <button
+            type="button"
+            disabled={ratingConsent.isSaving}
+            onClick={() => ratingConsent.setConsent(true)}
+            className="bg-abl-600 hover:bg-abl-700 text-white font-semibold px-4 py-2 rounded-lg disabled:opacity-60"
+          >
+            Разрешить
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 mb-8" role="tablist">
         {[{ id: "ALL", name: "Все залы" }, ...halls].map((tab) => (

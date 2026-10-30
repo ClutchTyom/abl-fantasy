@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { computeAllSquadResults } from "@/lib/squadPoints";
 import { createSupabaseAdminClient } from "@/lib/supabaseAdmin";
+import { publicDisplayName } from "@/lib/ratingConsent";
 import {
   hashTelegramLinkToken,
   sendTelegramMessage,
@@ -242,14 +243,20 @@ async function handleCommand(message: TelegramMessage, text: string) {
 
     const { data: profiles, error } = await admin
       .from("profiles")
-      .select("id, username")
+      .select("id, username, rating_consent_at")
       .in("id", users.map(([userId]) => userId));
     if (error) throw new Error(`Не удалось загрузить рейтинг: ${error.message}`);
-    const names = new Map((profiles ?? []).map((profile) => [profile.id, profile.username]));
+    // Ник публикуется только при отдельном согласии на распространение.
+    const names = new Map(
+      (profiles ?? []).map((profile) => [
+        profile.id,
+        publicDisplayName(profile.username, Boolean(profile.rating_consent_at)),
+      ])
+    );
     await sendTelegramMessage(
       message.chat.id,
       `Общий рейтинг:\n${users
-        .map(([userId, points], index) => `${index + 1}. ${names.get(userId) ?? "Без имени"} — ${points.toFixed(1)} FP`)
+        .map(([userId, points], index) => `${index + 1}. ${names.get(userId) ?? publicDisplayName(null, false)} — ${points.toFixed(1)} FP`)
         .join("\n")}`
     );
     return;

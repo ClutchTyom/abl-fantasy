@@ -13,6 +13,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
+  const [agreedToRating, setAgreedToRating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [needsConfirmation, setNeedsConfirmation] = useState(false);
@@ -35,6 +36,8 @@ export default function RegisterPage() {
         data: {
           username,
           privacy_consent_at: new Date().toISOString(),
+          // Отдельное необязательное согласие на показ ника в рейтинге.
+          rating_consent_at: agreedToRating ? new Date().toISOString() : null,
         },
       },
     });
@@ -131,6 +134,20 @@ export default function RegisterPage() {
                 политикой конфиденциальности
               </Link>{" "}
               и даю согласие на обработку персональных данных
+            </span>
+          </label>
+
+          <label className="flex items-start gap-2 text-sm text-gray-600">
+            <input
+              type="checkbox"
+              checked={agreedToRating}
+              onChange={(e) => setAgreedToRating(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Разрешаю показывать мой никнейм, очки и место в общем рейтинге
+              (необязательно; без этого вы будете отображаться как «Скрытый
+              игрок»). Согласие можно отозвать в любой момент.
             </span>
           </label>
 

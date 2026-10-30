@@ -10,6 +10,7 @@ import {
   SquadPlayerResult,
 } from "@/lib/squadPoints";
 import { formatFantasyWeekName } from "@/lib/fantasyWeeks";
+import RatingConsentToggle from "@/components/dashboard/RatingConsentToggle";
 
 type Rank = { place: number; total: number };
 
@@ -68,14 +69,16 @@ export default function UserDashboard({ userId }: { userId: string }) {
         // Места считаются внутри зала пользователя.
         let hallUserIds: Set<string> | null = null;
         if (hallId) {
-          const { data: hallProfiles, error: hallError } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("hall_id", hallId);
+          const { data: hallProfiles, error: hallError } = await supabase.rpc(
+            "public_profiles",
+            { p_hall_id: hallId }
+          );
           if (hallError) {
             throw new Error(`Не удалось загрузить участников зала: ${hallError.message}`);
           }
-          hallUserIds = new Set((hallProfiles ?? []).map((p) => p.id as string));
+          hallUserIds = new Set(
+            ((hallProfiles ?? []) as { id: string }[]).map((p) => p.id)
+          );
         }
 
         const allResults = (await computeAllSquadResults()).filter(
@@ -187,6 +190,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
           Telegram-бот
         </Link>
       </div>
+
+      <RatingConsentToggle />
 
       {!isHallLoading && !hallId && (
         <div className="mb-6 border border-abl-200 rounded-xl p-4 bg-abl-50 text-abl-800 text-sm">
