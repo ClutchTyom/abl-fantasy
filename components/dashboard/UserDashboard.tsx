@@ -180,6 +180,12 @@ export default function UserDashboard({ userId }: { userId: string }) {
         >
           Собрать команду
         </Link>
+        <Link
+          href="/telegram"
+          className="text-abl-600 hover:underline font-medium"
+        >
+          Telegram-бот
+        </Link>
       </div>
 
       {!isHallLoading && !hallId && (
